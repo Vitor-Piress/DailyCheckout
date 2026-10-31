@@ -549,6 +549,11 @@ h2 {
   background: #e8f2ea;
 }
 
+.operation-flow {
+  width: min(100%, 42rem);
+  margin: 0 auto;
+}
+
 .service-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -597,8 +602,74 @@ h2 {
   padding: 1.25rem;
 }
 
-.checkout-panel h2 {
+.checkout-heading {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.checkout-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+}
+
+.checkout-title-row .eyebrow {
   margin-bottom: 0;
+}
+
+.selected-service-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.55rem;
+  min-height: 3rem;
+  width: 100%;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #9fc2a7;
+  border-radius: 0.75rem;
+  color: #245c35;
+  background: #e8f2ea;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.selected-service-badge svg {
+  color: #2f6840;
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid #dce5dd;
+  border-radius: 50%;
+  color: #2f6840;
+  background: #f5f7f4;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.secondary-button:hover {
+  border-color: #4a7957;
+  background: #e8f2ea;
+}
+
+.secondary-button:active {
+  background: #dcebdd;
+}
+
+.secondary-button:focus-visible {
+  outline: 2px solid #2f6840;
+  outline-offset: 2px;
 }
 
 .payment-options {

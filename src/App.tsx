@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   BarChart3,
   CalendarDays,
   CheckCircle2,
@@ -196,30 +197,44 @@ function DailyOperation() {
         </div>
       )}
       {!loading && !error && services.length > 0 && (
-        <>
-          <div className="service-grid" aria-label="Serviços disponíveis">
-            {services.map((service) => (
-              <button
-                className={`service-button${
-                  selectedService?.id === service.id
-                    ? " service-button-selected"
-                    : ""
-                }`}
-                key={service.id}
-                onClick={() => chooseService(service)}
-                type="button"
-              >
-                <span>{service.name}</span>
-                {service.description && <small>{service.description}</small>}
-              </button>
-            ))}
-          </div>
-
-          {selectedService && (
+        <div className="operation-flow">
+          {!selectedService ? (
+            <div className="service-grid" aria-label="Serviços disponíveis">
+              {services.map((service) => (
+                <button
+                  className="service-button"
+                  key={service.id}
+                  onClick={() => chooseService(service)}
+                  type="button"
+                >
+                  <span>{service.name}</span>
+                  {service.description && <small>{service.description}</small>}
+                </button>
+              ))}
+            </div>
+          ) : (
             <div className="checkout-panel">
-              <div>
-                <p className="eyebrow">Registrar atendimento</p>
-                <h2>{selectedService.name}</h2>
+              <div className="checkout-heading">
+                <div className="checkout-title-row">
+                  <button
+                    aria-label="Voltar para serviços"
+                    className="secondary-button"
+                    onClick={() => {
+                      setSelectedService(null);
+                      setPaymentMethod(null);
+                      setError(null);
+                    }}
+                    title="Voltar para serviços"
+                    type="button"
+                  >
+                    <ArrowLeft size={18} aria-hidden="true" />
+                  </button>
+                  <p className="eyebrow">Registrar atendimento</p>
+                </div>
+                <div className="selected-service-badge">
+                  <Scissors size={20} aria-hidden="true" />
+                  <span>{selectedService.name}</span>
+                </div>
               </div>
               <fieldset className="payment-options">
                 <legend>Forma de pagamento</legend>
@@ -246,7 +261,7 @@ function DailyOperation() {
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
       {success && (
         <DismissibleMessage
