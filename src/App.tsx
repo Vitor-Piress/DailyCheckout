@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import {
+  AlertCircle,
   BarChart3,
   CalendarDays,
+  CheckCircle2,
   ClipboardList,
   LayoutDashboard,
   Scissors,
 } from "lucide-react";
 import { NavLink, Route, Routes } from "react-router-dom";
+import {
+  createServiceRecord,
+  listServiceTypes,
+} from "./api/dailyCheckoutApi";
+import { ApiError } from "./api/client";
+import type { PaymentMethod, ServiceType } from "./api/types";
 import { supabase } from "./utils/supabase";
 
 type Todo = {
@@ -44,6 +52,62 @@ function Navigation() {
 }
 
 function DailyOperation() {
+  const [services, setServices] = useState<ServiceType[]>([]);
+  const [selectedService, setSelectedService] = useState<ServiceType | null>(
+    null,
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    void listServiceTypes()
+      .then(setServices)
+      .catch((cause: unknown) => {
+        console.error("Não foi possível carregar os serviços:", cause);
+        setError(getApiErrorMessage(cause, "Não foi possível carregar os serviços."));
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  function chooseService(service: ServiceType) {
+    setSelectedService(service);
+    setPaymentMethod(null);
+    setSuccess(null);
+    setError(null);
+  }
+
+  async function handleSubmit() {
+    if (!selectedService || !paymentMethod || submitting) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await createServiceRecord({
+        serviceTypeId: selectedService.id,
+        paymentMethod,
+      });
+      setSuccess(`${selectedService.name} registrado com sucesso.`);
+      setSelectedService(null);
+      setPaymentMethod(null);
+    } catch (cause: unknown) {
+      console.error("Não foi possível registrar o atendimento:", cause);
+      setError(
+        getApiErrorMessage(cause, "Não foi possível registrar o atendimento."),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <section className="page-section">
       <div className="page-heading">
@@ -60,16 +124,104 @@ function DailyOperation() {
         </div>
       </div>
 
-      <div className="empty-panel">
-        <Scissors size={28} aria-hidden="true" />
-        <h2>Serviços disponíveis em breve</h2>
-        <p>
-          A operação diária será conectada à API na próxima etapa. Aqui ficarão
-          os botões rápidos para registrar cada serviço.
+      {loading && (
+        <div className="empty-panel">
+          <p>Carregando serviços disponíveis...</p>
+        </div>
+      )}
+      {!loading && error && (
+        <div className="empty-panel status-error" role="alert">
+          <AlertCircle size={28} aria-hidden="true" />
+          <h2>Não foi possível carregar os serviços</h2>
+          <p>{error}</p>
+        </div>
+      )}
+      {!loading && !error && services.length === 0 && (
+        <div className="empty-panel">
+          <Scissors size={28} aria-hidden="true" />
+          <h2>Nenhum serviço disponível</h2>
+          <p>Cadastre um serviço ativo para começar a registrar atendimentos.</p>
+        </div>
+      )}
+      {!loading && !error && services.length > 0 && (
+        <>
+          <div className="service-grid" aria-label="Serviços disponíveis">
+            {services.map((service) => (
+              <button
+                className={`service-button${
+                  selectedService?.id === service.id
+                    ? " service-button-selected"
+                    : ""
+                }`}
+                key={service.id}
+                onClick={() => chooseService(service)}
+                type="button"
+              >
+                <span>{service.name}</span>
+                {service.description && (
+                  <small>{service.description}</small>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {selectedService && (
+            <div className="checkout-panel">
+              <div>
+                <p className="eyebrow">Registrar atendimento</p>
+                <h2>{selectedService.name}</h2>
+              </div>
+              <fieldset className="payment-options">
+                <legend>Forma de pagamento</legend>
+                {paymentOptions.map((option) => (
+                  <label className="payment-option" key={option.value}>
+                    <input
+                      checked={paymentMethod === option.value}
+                      name="payment-method"
+                      onChange={() => setPaymentMethod(option.value)}
+                      type="radio"
+                      value={option.value}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <button
+                className="primary-button"
+                disabled={!paymentMethod || submitting}
+                onClick={() => void handleSubmit()}
+                type="button"
+              >
+                {submitting ? "Registrando..." : "Confirmar atendimento"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {success && (
+        <p className="feedback-message feedback-success" role="status">
+          <CheckCircle2 size={18} aria-hidden="true" />
+          {success}
         </p>
-      </div>
+      )}
     </section>
   );
+}
+
+const paymentOptions: Array<{ value: PaymentMethod; label: string }> = [
+  { value: "cash", label: "Dinheiro" },
+  { value: "pix", label: "Pix" },
+  { value: "credit_card", label: "Cartão de crédito" },
+  { value: "debit_card", label: "Cartão de débito" },
+  { value: "other", label: "Outro" },
+];
+
+function getApiErrorMessage(cause: unknown, fallback: string): string {
+  if (cause instanceof ApiError) {
+    return cause.message;
+  }
+
+  return cause instanceof Error ? cause.message : fallback;
 }
 
 function LegacyRecords() {

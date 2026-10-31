@@ -18,12 +18,6 @@ export class ApiError extends Error {
 
 const apiUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "");
 
-if (!apiUrl) {
-  throw new Error(
-    "A variável VITE_API_URL não foi configurada. Defina-a no arquivo .env.",
-  );
-}
-
 async function readResponseBody(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type");
 
@@ -68,6 +62,13 @@ export async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!apiUrl) {
+    throw new ApiError(
+      "A variável VITE_API_URL não foi configurada. Defina-a no arquivo .env.",
+      0,
+    );
+  }
+
   let response: Response;
 
   try {
