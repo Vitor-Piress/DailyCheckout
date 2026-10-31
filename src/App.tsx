@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
@@ -10,14 +10,17 @@ import {
 } from "lucide-react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import {
+  createExpense,
   createServiceRecord,
   getDailyReport,
   listServiceTypes,
   listServiceRecords,
+  listExpenses,
 } from "./api/dailyCheckoutApi";
 import { ApiError } from "./api/client";
 import type {
   DailyReport,
+  Expense,
   PaymentMethod,
   ServiceRecord,
   ServiceType,
@@ -384,6 +387,196 @@ function ReportList({
   );
 }
 
+function ExpenseManagement() {
+  const [date, setDate] = useState(getToday);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    void listExpenses(date)
+      .then(setExpenses)
+      .catch((cause: unknown) => {
+        console.error("Não foi possível carregar as despesas:", cause);
+        setError(
+          getApiErrorMessage(cause, "Não foi possível carregar as despesas."),
+        );
+      })
+      .finally(() => setLoading(false));
+  }, [date]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const amountCents = Math.round(Number(amount.replace(",", ".")) * 100);
+
+    if (!description.trim()) {
+      setError("Informe a descrição da despesa.");
+      return;
+    }
+
+    if (!Number.isFinite(amountCents) || amountCents < 1) {
+      setError("Informe um valor de despesa maior que zero.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await createExpense({
+        description: description.trim(),
+        amountCents,
+        ...(category.trim() ? { category: category.trim() } : {}),
+        paymentMethod,
+        occurredAt: new Date(`${date}T12:00:00`).toISOString(),
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      });
+      setDescription("");
+      setAmount("");
+      setCategory("");
+      setNotes("");
+      setSuccess("Despesa lançada com sucesso.");
+      setLoading(true);
+      setExpenses(await listExpenses(date));
+    } catch (cause: unknown) {
+      console.error("Não foi possível lançar a despesa:", cause);
+      setError(getApiErrorMessage(cause, "Não foi possível lançar a despesa."));
+    } finally {
+      setSubmitting(false);
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="expenses-section">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Controle financeiro</p>
+          <h2>Despesas</h2>
+        </div>
+        <ClipboardList size={24} aria-hidden="true" />
+      </div>
+
+      <form className="expense-form" onSubmit={(event) => void handleSubmit(event)}>
+        <label>
+          Data
+          <input
+            max={getToday()}
+            onChange={(event) => {
+              setLoading(true);
+              setError(null);
+              setDate(event.target.value);
+            }}
+            type="date"
+            value={date}
+          />
+        </label>
+        <label>
+          Descrição
+          <input
+            maxLength={200}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Ex.: produtos de limpeza"
+            required
+            type="text"
+            value={description}
+          />
+        </label>
+        <label>
+          Valor (R$)
+          <input
+            min="0.01"
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder="0,00"
+            required
+            step="0.01"
+            type="number"
+            value={amount}
+          />
+        </label>
+        <label>
+          Categoria (opcional)
+          <input
+            maxLength={100}
+            onChange={(event) => setCategory(event.target.value)}
+            placeholder="Ex.: materiais"
+            type="text"
+            value={category}
+          />
+        </label>
+        <label>
+          Forma de pagamento
+          <select
+            onChange={(event) =>
+              setPaymentMethod(event.target.value as PaymentMethod)
+            }
+            value={paymentMethod}
+          >
+            {paymentOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Observações (opcional)
+          <textarea
+            maxLength={500}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Detalhes adicionais"
+            rows={3}
+            value={notes}
+          />
+        </label>
+        <button className="primary-button" disabled={submitting} type="submit">
+          {submitting ? "Lançando..." : "Lançar despesa"}
+        </button>
+      </form>
+
+      {success && (
+        <p className="feedback-message feedback-success" role="status">
+          <CheckCircle2 size={18} aria-hidden="true" />
+          {success}
+        </p>
+      )}
+      {error && (
+        <p className="status-message status-error" role="alert">
+          {error}
+        </p>
+      )}
+      {loading && <p className="status-message">Carregando despesas...</p>}
+      {!loading && !error && expenses.length === 0 && (
+        <p className="status-message">Nenhuma despesa lançada nesta data.</p>
+      )}
+      {!loading && expenses.length > 0 && (
+        <ul className="expense-list">
+          {expenses.map((expense) => (
+            <li key={expense.id}>
+              <span>
+                <strong>{expense.description}</strong>
+                <small>
+                  {paymentMethodLabel(expense.paymentMethod)}
+                  {expense.category ? ` · ${expense.category}` : ""}
+                </small>
+              </span>
+              <b>{formatCurrency(expense.amountCents)}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function Management() {
   return (
     <section className="page-section">
@@ -399,6 +592,7 @@ function Management() {
       </div>
 
       <DailyManagement />
+      <ExpenseManagement />
     </section>
   );
 }

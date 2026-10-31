@@ -148,7 +148,8 @@ h2 {
 .checkout-panel,
 .feature-card,
 .report-panel,
-.records-panel {
+.records-panel,
+.expenses-section {
   border: 1px solid #dce5dd;
   border-radius: 1rem;
   background: #fff;
@@ -248,7 +249,8 @@ h2 {
 }
 
 .report-panel,
-.records-panel {
+.records-panel,
+.expenses-section {
   padding: 1.25rem;
 }
 
@@ -286,6 +288,70 @@ h2 {
 .summary-list b,
 .record-list li b {
   color: #2f6840;
+  white-space: nowrap;
+}
+
+.expense-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.expense-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #34443a;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.expense-form input,
+.expense-form select,
+.expense-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #c8d6ca;
+  border-radius: 0.55rem;
+  color: #23372a;
+  background: #fff;
+  font-weight: 400;
+}
+
+.expense-form textarea {
+  resize: vertical;
+}
+
+.expense-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.expense-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem;
+  border-radius: 0.65rem;
+  background: #f5f7f4;
+}
+
+.expense-list li > span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.expense-list small {
+  color: #617067;
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.expense-list b {
+  color: #a83e3e;
   white-space: nowrap;
 }
 
