@@ -20,12 +20,20 @@ export function ServiceSelector({
             onClick={() => onSelect(service)}
             type="button"
           >
-            <Icon
-              aria-hidden="true"
-              className="text-[#4a7957]"
-              size={30}
-              strokeWidth={1.8}
-            />
+            {Icon.kind === "asset" ? (
+              <img
+                alt=""
+                className="h-[30px] w-[30px]"
+                src={Icon.source}
+              />
+            ) : (
+              <Icon.icon
+                aria-hidden="true"
+                className="text-[#4a7957]"
+                size={30}
+                strokeWidth={1.8}
+              />
+            )}
             <span>{service.name}</span>
             {service.description && (
               <small className="text-xs font-medium text-[#617067]">
