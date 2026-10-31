@@ -48,6 +48,11 @@ export function listExpenses(date: string): Promise<Expense[]> {
   return request<Expense[]>(`/expenses${dateQuery(date)}`);
 }
 
+export function listExpensesByMonth(month: string): Promise<Expense[]> {
+  const params = new URLSearchParams({ month });
+  return request<Expense[]>(`/expenses?${params.toString()}`);
+}
+
 export function getDailyReport(date: string): Promise<DailyReport> {
   return request<DailyReport>(`/reports/daily${dateQuery(date)}`);
 }

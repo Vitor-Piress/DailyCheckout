@@ -29,6 +29,23 @@ export function getToday(): string {
   return `${today.getFullYear()}-${month}-${day}`;
 }
 
+export function getCurrentMonth(): string {
+  return getToday().slice(0, 7);
+}
+
+export function formatDate(date: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(date));
+}
+
+export function toExpenseDateTime(date: string): string {
+  return `${date}T12:00:00-03:00`;
+}
+
 export function paymentMethodLabel(paymentMethod: PaymentMethod): string {
   return (
     paymentOptions.find((option) => option.value === paymentMethod)?.label ??
