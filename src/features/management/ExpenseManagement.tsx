@@ -15,6 +15,7 @@ import {
   formatDate,
   getCurrentMonth,
   getToday,
+  monthOptions,
   paymentMethodLabel,
   paymentOptions,
   toExpenseDateTime,
@@ -23,7 +24,13 @@ import {
 const fieldClass = "w-full rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 text-[#23372a] font-normal focus-visible:outline-2 focus-visible:outline-[#2f6840]";
 
 export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const currentMonth = getCurrentMonth();
+  const currentYear = currentMonth.slice(0, 4);
+  const currentMonthNumber = currentMonth.slice(5, 7);
+  const [selectedMonthNumber, setSelectedMonthNumber] = useState(
+    currentMonth.slice(5, 7),
+  );
+  const [selectedYear, setSelectedYear] = useState(currentMonth.slice(0, 4));
   const [expenseDate, setExpenseDate] = useState(getToday);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +43,10 @@ export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const selectedMonth =
+    /^\d{4}$/.test(selectedYear) && /^\d{2}$/.test(selectedMonthNumber)
+      ? `${selectedYear}-${selectedMonthNumber}`
+      : "";
 
   useEffect(() => {
     if (!selectedMonth) {
@@ -92,29 +103,66 @@ export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
         <div><p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">Controle financeiro</p><h2 className="m-0 text-base">Despesas</h2></div>
         <ClipboardList className="text-[#4a7957]" size={24} />
       </div>
-      <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
-        Mês de referência
-        <input
-          className={fieldClass}
-          max={getCurrentMonth()}
-          onChange={(event) => {
-            setLoading(true);
-            setError(null);
-            const month = event.target.value;
-            setSelectedMonth(month);
-            if (!month) {
-              setExpenses([]);
-              setLoading(false);
-              return;
-            }
-            setExpenseDate(
-              month === getCurrentMonth() ? getToday() : `${month}-01`,
-            );
-          }}
-          type="month"
-          value={selectedMonth}
-        />
-      </label>
+      <div className="grid gap-1.5">
+        <span className="text-sm font-bold text-[#34443a]">Mês de referência</span>
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+            Mês
+            <select
+              className={fieldClass}
+              onChange={(event) => {
+                const month = `${selectedYear}-${event.target.value}`;
+                setLoading(true);
+                setError(null);
+                setSelectedMonthNumber(event.target.value);
+                setExpenseDate(
+                  month === getCurrentMonth() ? getToday() : `${month}-01`,
+                );
+              }}
+              value={selectedMonthNumber}
+            >
+              {monthOptions.map((option) => (
+                <option
+                  disabled={
+                    selectedYear === currentYear &&
+                    option.value > currentMonthNumber
+                  }
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+            Ano
+            <input
+              className={fieldClass}
+              inputMode="numeric"
+              max={new Date().getFullYear()}
+              min="2000"
+              onChange={(event) => {
+                const year = event.target.value;
+                setLoading(true);
+                setError(null);
+                setSelectedYear(year);
+                const month = `${year}-${selectedMonthNumber}`;
+                if (/^\d{4}$/.test(year)) {
+                  setExpenseDate(
+                    month === getCurrentMonth() ? getToday() : `${month}-01`,
+                  );
+                } else {
+                  setExpenses([]);
+                  setLoading(false);
+                }
+              }}
+              type="number"
+              value={selectedYear}
+            />
+          </label>
+        </div>
+      </div>
       {loading && <LoadingMessage>Carregando despesas...</LoadingMessage>}
       {!loading && !error && expenses.length === 0 && <p className="m-0 text-[#617067]">Nenhuma despesa lançada neste mês.</p>}
       {!loading && expenses.length > 0 && <ul className="m-0 grid list-none gap-3 p-0">{expenses.map((expense) => <li className="flex items-center justify-between gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3" key={expense.id}><span className="grid gap-0.5"><strong>{expense.description}</strong><small className="text-xs text-[#617067]">{formatDate(expense.occurredAt)} · {paymentMethodLabel(expense.paymentMethod)}{expense.category ? ` · ${expense.category}` : ""}</small></span><b className="whitespace-nowrap text-[#a83e3e]">{formatCurrency(expense.amountCents)}</b></li>)}</ul>}
