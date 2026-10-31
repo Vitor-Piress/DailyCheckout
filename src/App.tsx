@@ -6,13 +6,16 @@ import {
   CheckCircle2,
   ClipboardList,
   LayoutDashboard,
+  RefreshCw,
   Scissors,
+  X,
 } from "lucide-react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import {
   createExpense,
   createServiceRecord,
   getDailyReport,
+  getPeriodicReport,
   listServiceTypes,
   listServiceRecords,
   listExpenses,
@@ -22,6 +25,8 @@ import type {
   DailyReport,
   Expense,
   PaymentMethod,
+  Period,
+  PeriodicReport,
   ServiceRecord,
   ServiceType,
 } from "./api/types";
@@ -52,6 +57,40 @@ function Navigation() {
   );
 }
 
+function DismissibleMessage({
+  message,
+  onClose,
+  variant = "success",
+}: {
+  message: string;
+  onClose: () => void;
+  variant?: "success" | "error";
+}) {
+  const isError = variant === "error";
+
+  return (
+    <div
+      className={`feedback-message feedback-${variant}`}
+      role={isError ? "alert" : "status"}
+    >
+      {isError ? (
+        <AlertCircle size={18} aria-hidden="true" />
+      ) : (
+        <CheckCircle2 size={18} aria-hidden="true" />
+      )}
+      <span>{message}</span>
+      <button
+        aria-label="Fechar aviso"
+        className="feedback-close"
+        onClick={onClose}
+        type="button"
+      >
+        <X size={18} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 function DailyOperation() {
   const [services, setServices] = useState<ServiceType[]>([]);
   const [selectedService, setSelectedService] = useState<ServiceType | null>(
@@ -70,7 +109,9 @@ function DailyOperation() {
       .then(setServices)
       .catch((cause: unknown) => {
         console.error("Não foi possível carregar os serviços:", cause);
-        setError(getApiErrorMessage(cause, "Não foi possível carregar os serviços."));
+        setError(
+          getApiErrorMessage(cause, "Não foi possível carregar os serviços."),
+        );
       })
       .finally(() => setLoading(false));
   }, []);
@@ -135,13 +176,23 @@ function DailyOperation() {
           <AlertCircle size={28} aria-hidden="true" />
           <h2>Não foi possível carregar os serviços</h2>
           <p>{error}</p>
+          <button
+            aria-label="Fechar aviso"
+            className="feedback-close"
+            onClick={() => setError(null)}
+            type="button"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
         </div>
       )}
       {!loading && !error && services.length === 0 && (
         <div className="empty-panel">
           <Scissors size={28} aria-hidden="true" />
           <h2>Nenhum serviço disponível</h2>
-          <p>Cadastre um serviço ativo para começar a registrar atendimentos.</p>
+          <p>
+            Cadastre um serviço ativo para começar a registrar atendimentos.
+          </p>
         </div>
       )}
       {!loading && !error && services.length > 0 && (
@@ -159,9 +210,7 @@ function DailyOperation() {
                 type="button"
               >
                 <span>{service.name}</span>
-                {service.description && (
-                  <small>{service.description}</small>
-                )}
+                {service.description && <small>{service.description}</small>}
               </button>
             ))}
           </div>
@@ -200,10 +249,10 @@ function DailyOperation() {
         </>
       )}
       {success && (
-        <p className="feedback-message feedback-success" role="status">
-          <CheckCircle2 size={18} aria-hidden="true" />
-          {success}
-        </p>
+        <DismissibleMessage
+          message={success}
+          onClose={() => setSuccess(null)}
+        />
       )}
     </section>
   );
@@ -246,7 +295,7 @@ function paymentMethodLabel(paymentMethod: PaymentMethod): string {
   );
 }
 
-function DailyManagement() {
+function DailyManagement({ refreshToken }: { refreshToken: number }) {
   const [date, setDate] = useState(getToday);
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [report, setReport] = useState<DailyReport | null>(null);
@@ -260,7 +309,10 @@ function DailyManagement() {
         setReport(dailyReport);
       })
       .catch((cause: unknown) => {
-        console.error("Não foi possível carregar o acompanhamento diário:", cause);
+        console.error(
+          "Não foi possível carregar o acompanhamento diário:",
+          cause,
+        );
         setError(
           getApiErrorMessage(
             cause,
@@ -269,7 +321,7 @@ function DailyManagement() {
         );
       })
       .finally(() => setLoading(false));
-  }, [date]);
+  }, [date, refreshToken]);
 
   return (
     <div className="daily-management">
@@ -290,9 +342,11 @@ function DailyManagement() {
 
       {loading && <p className="status-message">Carregando dados do dia...</p>}
       {error && (
-        <p className="status-message status-error" role="alert">
-          {error}
-        </p>
+        <DismissibleMessage
+          message={error}
+          onClose={() => setError(null)}
+          variant="error"
+        />
       )}
       {!loading && !error && report && (
         <>
@@ -387,7 +441,7 @@ function ReportList({
   );
 }
 
-function ExpenseManagement() {
+function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
   const [date, setDate] = useState(getToday);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -410,7 +464,7 @@ function ExpenseManagement() {
         );
       })
       .finally(() => setLoading(false));
-  }, [date]);
+  }, [date, refreshToken]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -465,7 +519,10 @@ function ExpenseManagement() {
         <ClipboardList size={24} aria-hidden="true" />
       </div>
 
-      <form className="expense-form" onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        className="expense-form"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         <label>
           Data
           <input
@@ -543,15 +600,17 @@ function ExpenseManagement() {
       </form>
 
       {success && (
-        <p className="feedback-message feedback-success" role="status">
-          <CheckCircle2 size={18} aria-hidden="true" />
-          {success}
-        </p>
+        <DismissibleMessage
+          message={success}
+          onClose={() => setSuccess(null)}
+        />
       )}
       {error && (
-        <p className="status-message status-error" role="alert">
-          {error}
-        </p>
+        <DismissibleMessage
+          message={error}
+          onClose={() => setError(null)}
+          variant="error"
+        />
       )}
       {loading && <p className="status-message">Carregando despesas...</p>}
       {!loading && !error && expenses.length === 0 && (
@@ -577,7 +636,161 @@ function ExpenseManagement() {
   );
 }
 
+const periodOptions: Array<{ value: Period; label: string }> = [
+  { value: "month", label: "Mês" },
+  { value: "quarter", label: "Trimestre" },
+  { value: "semester", label: "Semestre" },
+  { value: "year", label: "Ano" },
+];
+
+function PeriodicManagement({ refreshToken }: { refreshToken: number }) {
+  const [period, setPeriod] = useState<Period>("month");
+  const [date, setDate] = useState(getToday);
+  const [report, setReport] = useState<PeriodicReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getPeriodicReport(period, date)
+      .then(setReport)
+      .catch((cause: unknown) => {
+        console.error(
+          "Não foi possível carregar o relatório periódico:",
+          cause,
+        );
+        setError(
+          getApiErrorMessage(
+            cause,
+            "Não foi possível carregar o relatório periódico.",
+          ),
+        );
+      })
+      .finally(() => setLoading(false));
+  }, [date, period, refreshToken]);
+
+  function changePeriod(nextPeriod: Period) {
+    setLoading(true);
+    setError(null);
+    setPeriod(nextPeriod);
+  }
+
+  function changeDate(nextDate: string) {
+    setLoading(true);
+    setError(null);
+    setDate(nextDate);
+  }
+
+  return (
+    <div className="periodic-section">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Análise financeira</p>
+          <h2>Relatório periódico</h2>
+        </div>
+        <BarChart3 size={24} aria-hidden="true" />
+      </div>
+
+      <div className="periodic-filters">
+        <label>
+          Período
+          <select
+            onChange={(event) => changePeriod(event.target.value as Period)}
+            value={period}
+          >
+            {periodOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Data de referência
+          <input
+            max={getToday()}
+            onChange={(event) => changeDate(event.target.value)}
+            type="date"
+            value={date}
+          />
+        </label>
+      </div>
+
+      {loading && (
+        <p className="status-message">Carregando relatório periódico...</p>
+      )}
+      {error && (
+        <DismissibleMessage
+          message={error}
+          onClose={() => setError(null)}
+          variant="error"
+        />
+      )}
+      {!loading && !error && report && (
+        <>
+          <p className="period-range">
+            Período: {report.startDate} a {report.endDate}
+          </p>
+          <div className="metric-grid periodic-metrics">
+            <div className="metric-card">
+              <span>Receita bruta</span>
+              <strong>{formatCurrency(report.grossRevenueCents)}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Despesas</span>
+              <strong>{formatCurrency(report.expensesCents)}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Resultado líquido</span>
+              <strong>{formatCurrency(report.netRevenueCents)}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Atendimentos</span>
+              <strong>{report.serviceCount}</strong>
+            </div>
+          </div>
+
+          <div className="report-panel">
+            <h2>Despesas por forma de pagamento</h2>
+            {report.expensesByPaymentMethod.length === 0 ? (
+              <p className="status-message">
+                Nenhuma despesa registrada neste período.
+              </p>
+            ) : (
+              <ul className="summary-list">
+                {report.expensesByPaymentMethod.map((payment) => (
+                  <li key={payment.paymentMethod}>
+                    <span>
+                      <strong>
+                        {paymentMethodLabel(payment.paymentMethod)}
+                      </strong>
+                      <small>{payment.quantity} despesa(s)</small>
+                    </span>
+                    <b>{formatCurrency(payment.totalCents)}</b>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Management() {
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  function refreshManagement() {
+    if (refreshing) {
+      return;
+    }
+
+    setRefreshing(true);
+    setRefreshToken((current) => current + 1);
+    window.setTimeout(() => setRefreshing(false), 700);
+  }
+
   return (
     <section className="page-section">
       <div className="page-heading">
@@ -588,11 +801,22 @@ function Management() {
             Consulte os registros e acompanhe os resultados do negócio.
           </p>
         </div>
-        <BarChart3 size={28} aria-hidden="true" />
+        <button
+          aria-label="Atualizar dados da Gestão"
+          className={`cursor-pointer refresh-button${refreshing ? " refresh-button-loading" : ""}`}
+          disabled={refreshing}
+          onClick={refreshManagement}
+          title="Atualizar dados"
+          type="button"
+        >
+          <RefreshCw size={22} aria-hidden="true" />
+          <span>Atualizar</span>
+        </button>
       </div>
 
-      <DailyManagement />
-      <ExpenseManagement />
+      <DailyManagement refreshToken={refreshToken} />
+      <ExpenseManagement refreshToken={refreshToken} />
+      <PeriodicManagement refreshToken={refreshToken} />
     </section>
   );
 }
