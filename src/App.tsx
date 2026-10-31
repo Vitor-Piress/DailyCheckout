@@ -26,7 +26,9 @@ export default function App() {
 
       if (error) {
         console.error("Não foi possível carregar os todos do Supabase:", error);
-        setError(`${error.message}${error.code ? ` (código ${error.code})` : ""}`);
+        setError(
+          `${error.message}${error.code ? ` (código ${error.code})` : ""}`,
+        );
         setLoading(false);
         return;
       }
@@ -38,7 +40,9 @@ export default function App() {
     void getTodos().catch((cause: unknown) => {
       console.error("Falha ao conectar ao Supabase:", cause);
       setError(
-        cause instanceof Error ? cause.message : "Erro inesperado ao conectar ao Supabase.",
+        cause instanceof Error
+          ? cause.message
+          : "Erro inesperado ao conectar ao Supabase.",
       );
       setLoading(false);
     });
