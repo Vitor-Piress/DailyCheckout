@@ -11,19 +11,17 @@ import {
 import { NavLink, Route, Routes } from "react-router-dom";
 import {
   createServiceRecord,
+  getDailyReport,
   listServiceTypes,
+  listServiceRecords,
 } from "./api/dailyCheckoutApi";
 import { ApiError } from "./api/client";
-import type { PaymentMethod, ServiceType } from "./api/types";
-import { supabase } from "./utils/supabase";
-
-type Todo = {
-  id?: string | number;
-  name?: string;
-  title?: string;
-  created_at?: string;
-  [column: string]: unknown;
-};
+import type {
+  DailyReport,
+  PaymentMethod,
+  ServiceRecord,
+  ServiceType,
+} from "./api/types";
 
 function Navigation() {
   return (
@@ -224,77 +222,160 @@ function getApiErrorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback;
 }
 
-function LegacyRecords() {
-  const [todos, setTodos] = useState<Todo[]>([]);
+function formatCurrency(cents: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
+
+function getToday(): string {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${today.getFullYear()}-${month}-${day}`;
+}
+
+function paymentMethodLabel(paymentMethod: PaymentMethod): string {
+  return (
+    paymentOptions.find((option) => option.value === paymentMethod)?.label ??
+    paymentMethod
+  );
+}
+
+function DailyManagement() {
+  const [date, setDate] = useState(getToday);
+  const [records, setRecords] = useState<ServiceRecord[]>([]);
+  const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function getTodos() {
-      setLoading(true);
-      setError(null);
-
-      const { data: records, error: queryError } = await supabase
-        .from("fechamento")
-        .select("*")
-        .returns<Todo[]>();
-
-      if (queryError) {
-        console.error(
-          "Não foi possível carregar os registros legados:",
-          queryError,
-        );
+    void Promise.all([listServiceRecords(date), getDailyReport(date)])
+      .then(([serviceRecords, dailyReport]) => {
+        setRecords(serviceRecords);
+        setReport(dailyReport);
+      })
+      .catch((cause: unknown) => {
+        console.error("Não foi possível carregar o acompanhamento diário:", cause);
         setError(
-          `${queryError.message}${
-            queryError.code ? ` (código ${queryError.code})` : ""
-          }`,
+          getApiErrorMessage(
+            cause,
+            "Não foi possível carregar os dados do dia.",
+          ),
         );
-        setLoading(false);
-        return;
-      }
-
-      setTodos(records ?? []);
-      setLoading(false);
-    }
-
-    void getTodos().catch((cause: unknown) => {
-      console.error("Falha ao conectar ao Supabase:", cause);
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Erro inesperado ao carregar os registros.",
-      );
-      setLoading(false);
-    });
-  }, []);
+      })
+      .finally(() => setLoading(false));
+  }, [date]);
 
   return (
-    <div className="legacy-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Consulta existente</p>
-          <h2>Registros de fechamento</h2>
-        </div>
-        <ClipboardList size={24} aria-hidden="true" />
+    <div className="daily-management">
+      <div className="date-filter">
+        <label htmlFor="report-date">Data do acompanhamento</label>
+        <input
+          id="report-date"
+          max={getToday()}
+          onChange={(event) => {
+            setLoading(true);
+            setError(null);
+            setDate(event.target.value);
+          }}
+          type="date"
+          value={date}
+        />
       </div>
-      {loading && <p className="status-message">Carregando registros...</p>}
+
+      {loading && <p className="status-message">Carregando dados do dia...</p>}
       {error && (
         <p className="status-message status-error" role="alert">
-          Erro ao carregar registros: {error}
+          {error}
         </p>
       )}
-      {!loading && !error && todos.length === 0 && (
-        <p className="status-message">
-          Nenhum registro encontrado na consulta atual.
-        </p>
+      {!loading && !error && report && (
+        <>
+          <div className="metric-grid">
+            <div className="metric-card">
+              <span>Atendimentos</span>
+              <strong>{report.serviceCount}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Receita bruta</span>
+              <strong>{formatCurrency(report.grossRevenueCents)}</strong>
+            </div>
+          </div>
+
+          <div className="report-grid">
+            <ReportList
+              emptyMessage="Nenhum serviço registrado nesta data."
+              items={report.services.map((service) => ({
+                label: service.serviceName,
+                detail: `${service.quantity} atendimento(s)`,
+                value: formatCurrency(service.totalCents),
+              }))}
+              title="Resumo por serviço"
+            />
+            <ReportList
+              emptyMessage="Nenhum pagamento registrado nesta data."
+              items={report.paymentMethods.map((payment) => ({
+                label: paymentMethodLabel(payment.paymentMethod),
+                detail: `${payment.quantity} pagamento(s)`,
+                value: formatCurrency(payment.totalCents),
+              }))}
+              title="Resumo por pagamento"
+            />
+          </div>
+
+          <div className="records-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Atendimentos realizados</p>
+                <h2>Registros do dia</h2>
+              </div>
+              <ClipboardList size={24} aria-hidden="true" />
+            </div>
+            {records.length === 0 ? (
+              <p className="status-message">Nenhum atendimento nesta data.</p>
+            ) : (
+              <ul className="record-list">
+                {records.map((record) => (
+                  <li key={record.id}>
+                    <strong>{record.serviceName ?? "Serviço"}</strong>
+                    <span>{paymentMethodLabel(record.paymentMethod)}</span>
+                    <b>{formatCurrency(record.priceCents)}</b>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
-      {todos.length > 0 && (
-        <ul className="record-list">
-          {todos.map((todo, index) => (
-            <li key={todo.id ?? `${todo.created_at ?? "registro"}-${index}`}>
-              {todo.name ?? todo.title ?? todo.created_at ?? (
-                <pre>{JSON.stringify(todo, null, 2)}</pre>
-              )}
+    </div>
+  );
+}
+
+function ReportList({
+  emptyMessage,
+  items,
+  title,
+}: {
+  emptyMessage: string;
+  items: Array<{ label: string; detail: string; value: string }>;
+  title: string;
+}) {
+  return (
+    <div className="report-panel">
+      <h2>{title}</h2>
+      {items.length === 0 ? (
+        <p className="status-message">{emptyMessage}</p>
+      ) : (
+        <ul className="summary-list">
+          {items.map((item) => (
+            <li key={item.label}>
+              <span>
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
+              </span>
+              <b>{item.value}</b>
             </li>
           ))}
         </ul>
@@ -317,20 +398,7 @@ function Management() {
         <BarChart3 size={28} aria-hidden="true" />
       </div>
 
-      <div className="management-grid">
-        <div className="feature-card">
-          <BarChart3 size={22} aria-hidden="true" />
-          <h2>Relatórios</h2>
-          <p>Os relatórios diário e periódico serão adicionados em breve.</p>
-        </div>
-        <div className="feature-card">
-          <ClipboardList size={22} aria-hidden="true" />
-          <h2>Despesas</h2>
-          <p>O lançamento e a consulta de despesas ficarão nesta área.</p>
-        </div>
-      </div>
-
-      <LegacyRecords />
+      <DailyManagement />
     </section>
   );
 }
