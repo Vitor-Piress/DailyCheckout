@@ -9,7 +9,10 @@ export function ServiceSelector({
   onSelect: (service: ServiceType) => void;
 }) {
   return (
-    <div aria-label="Serviços disponíveis" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div
+      aria-label="Serviços disponíveis"
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+    >
       {services.map((service) => {
         const Icon = getServiceIcon(service.name);
 
@@ -21,11 +24,7 @@ export function ServiceSelector({
             type="button"
           >
             {Icon.kind === "asset" ? (
-              <img
-                alt=""
-                className="h-[30px] w-[30px]"
-                src={Icon.source}
-              />
+              <img alt="" className="h-[30px] w-[30px]" src={Icon.source} />
             ) : (
               <Icon.icon
                 aria-hidden="true"
@@ -34,7 +33,7 @@ export function ServiceSelector({
                 strokeWidth={1.8}
               />
             )}
-            <span>{service.name}</span>
+            <span className="font-bold">{service.name}</span>
             {service.description && (
               <small className="text-xs font-medium text-[#617067]">
                 {service.description}
