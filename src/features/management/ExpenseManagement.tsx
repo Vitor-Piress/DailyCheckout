@@ -1,4 +1,4 @@
-import { ClipboardList } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { createExpense, listExpenses } from "../../api/dailyCheckoutApi";
@@ -23,6 +23,7 @@ export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
   const [category, setCategory] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     void listExpenses(date)
@@ -75,20 +76,45 @@ export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
         <div><p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">Controle financeiro</p><h2 className="m-0 text-base">Despesas</h2></div>
         <ClipboardList className="text-[#4a7957]" size={24} />
       </div>
-      <form className="grid gap-3.5" onSubmit={(event) => void handleSubmit(event)}>
-        <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Data<input className={fieldClass} max={getToday()} onChange={(event) => { setLoading(true); setError(null); setDate(event.target.value); }} type="date" value={date} /></label>
-        <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Descrição<input className={fieldClass} maxLength={200} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: produtos de limpeza" required type="text" value={description} /></label>
-        <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Valor (R$)<input className={fieldClass} min="0.01" onChange={(event) => setAmount(event.target.value)} placeholder="0,00" required step="0.01" type="number" value={amount} /></label>
-        <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Categoria (opcional)<input className={fieldClass} maxLength={100} onChange={(event) => setCategory(event.target.value)} placeholder="Ex.: materiais" type="text" value={category} /></label>
-        <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Forma de pagamento<select className={fieldClass} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} value={paymentMethod}>{paymentOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Observações (opcional)<textarea className={fieldClass} maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder="Detalhes adicionais" rows={3} value={notes} /></label>
-        <Button disabled={submitting} type="submit">{submitting ? "Lançando..." : "Lançar despesa"}</Button>
-      </form>
-      {success && <FeedbackMessage message={success} onClose={() => setSuccess(null)} />}
-      {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
+      <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+        Data das despesas
+        <input
+          className={fieldClass}
+          max={getToday()}
+          onChange={(event) => {
+            setLoading(true);
+            setError(null);
+            setDate(event.target.value);
+          }}
+          type="date"
+          value={date}
+        />
+      </label>
       {loading && <LoadingMessage>Carregando despesas...</LoadingMessage>}
       {!loading && !error && expenses.length === 0 && <p className="m-0 text-[#617067]">Nenhuma despesa lançada nesta data.</p>}
       {!loading && expenses.length > 0 && <ul className="m-0 grid list-none gap-3 p-0">{expenses.map((expense) => <li className="flex items-center justify-between gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3" key={expense.id}><span className="grid gap-0.5"><strong>{expense.description}</strong><small className="text-xs text-[#617067]">{paymentMethodLabel(expense.paymentMethod)}{expense.category ? ` · ${expense.category}` : ""}</small></span><b className="whitespace-nowrap text-[#a83e3e]">{formatCurrency(expense.amountCents)}</b></li>)}</ul>}
+      <Button
+        aria-expanded={isFormOpen}
+        className="flex w-full items-center justify-center gap-2"
+        onClick={() => setIsFormOpen((open) => !open)}
+        type="button"
+        variant="secondary"
+      >
+        {isFormOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        <span>{isFormOpen ? "Fechar formulário" : "Adicionar despesa"}</span>
+      </Button>
+      {isFormOpen && (
+        <form className="grid gap-3.5" onSubmit={(event) => void handleSubmit(event)}>
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Descrição<input className={fieldClass} maxLength={200} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: produtos de limpeza" required type="text" value={description} /></label>
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Valor (R$)<input className={fieldClass} min="0.01" onChange={(event) => setAmount(event.target.value)} placeholder="0,00" required step="0.01" type="number" value={amount} /></label>
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Categoria (opcional)<input className={fieldClass} maxLength={100} onChange={(event) => setCategory(event.target.value)} placeholder="Ex.: materiais" type="text" value={category} /></label>
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Forma de pagamento<select className={fieldClass} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} value={paymentMethod}>{paymentOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Observações (opcional)<textarea className={fieldClass} maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder="Detalhes adicionais" rows={3} value={notes} /></label>
+          <Button disabled={submitting} type="submit">{submitting ? "Lançando..." : "Lançar despesa"}</Button>
+        </form>
+      )}
+      {success && <FeedbackMessage message={success} onClose={() => setSuccess(null)} />}
+      {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
     </div>
   );
 }

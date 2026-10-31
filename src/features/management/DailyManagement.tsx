@@ -99,10 +99,10 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
             ) : (
               <ul className="m-0 grid list-none gap-2.5 p-0">
                 {records.map((record) => (
-                  <li className="flex items-center justify-between gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]" key={record.id}>
+                  <li className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]" key={record.id}>
                     <strong>{record.serviceName ?? "Serviço"}</strong>
-                    <span className="text-xs text-[#617067]">{paymentMethodLabel(record.paymentMethod)}</span>
-                    <b className="whitespace-nowrap text-[#2f6840]">{formatCurrency(record.priceCents)}</b>
+                    <span className="text-center text-xs text-[#617067]">{paymentMethodLabel(record.paymentMethod)}</span>
+                    <b className="justify-self-end whitespace-nowrap text-[#2f6840]">{formatCurrency(record.priceCents)}</b>
                   </li>
                 ))}
               </ul>
