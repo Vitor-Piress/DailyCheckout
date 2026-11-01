@@ -165,6 +165,19 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
         : monthOptions;
   const reportEndDate =
     report && period === "week" ? addDaysToIsoDate(report.endDate, -1) : report?.endDate;
+  const displayedWeekStart = report?.startDate ?? getWeekStart(referenceDate);
+  const displayedWeekEnd =
+    reportEndDate ?? addDaysToIsoDate(displayedWeekStart, 6);
+  const navigationButtonClass = `${inputClass} ${controlHeightClass} flex items-center justify-center bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] disabled:cursor-not-allowed disabled:opacity-45`;
+
+  function getWeekStart(date: string): string {
+    const [year, month, day] = date.split("-").map(Number);
+    const value = new Date(Date.UTC(year, month - 1, day));
+    const dayOfWeek = value.getUTCDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    value.setUTCDate(value.getUTCDate() - daysFromMonday);
+    return value.toISOString().slice(0, 10);
+  }
   return (
     <div className="grid gap-4 rounded-2xl border border-[#dce5dd] bg-white p-5 shadow-[0_0.5rem_1.5rem_rgb(23_33_27/5%)]">
       <div className="flex items-center justify-between gap-4">
@@ -188,62 +201,98 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
             ))}
           </select>
         </label>
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem] sm:items-end">
+        <div
+          className={`grid gap-3 ${
+            period === "week"
+              ? ""
+              : "sm:grid-cols-[minmax(0,1fr)_8rem] sm:items-end"
+          }`}
+        >
           <div className="grid min-w-0 gap-1.5 text-sm font-bold text-[#34443a]">
             <span>
               {period === "year"
                 ? "Ano de referência"
                 : period === "week"
-                  ? "Data de referência"
+                  ? "Semana selecionada"
                   : "Referência"}
             </span>
+            {period === "week" ? (
+              <div className="grid min-w-0 gap-2 sm:grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] sm:items-end">
+                <div className="order-1 grid min-w-0 grid-cols-1 gap-2 min-[24rem]:grid-cols-2 sm:col-start-2 sm:row-start-1">
+                  <label className="grid min-w-0 gap-1 text-xs font-bold text-[#617067]">
+                    Início
+                    <input
+                      aria-label="Início da semana selecionada"
+                      className={`${inputClass} ${controlHeightClass} min-w-0 w-full`}
+                      readOnly
+                      tabIndex={-1}
+                      type="date"
+                      value={displayedWeekStart}
+                    />
+                  </label>
+                  <label className="grid min-w-0 gap-1 text-xs font-bold text-[#617067]">
+                    Fim
+                    <input
+                      aria-label="Fim da semana selecionada"
+                      className={`${inputClass} ${controlHeightClass} min-w-0 w-full`}
+                      readOnly
+                      tabIndex={-1}
+                      type="date"
+                      value={displayedWeekEnd}
+                    />
+                  </label>
+                </div>
+              <button
+                aria-label="Semana anterior"
+                className={`${navigationButtonClass} order-2 w-full min-w-0 sm:col-start-1 sm:row-start-1 sm:w-11 sm:min-w-11`}
+                disabled={referenceDate <= "2000-01-01"}
+                onClick={() =>
+                  changeReferenceDate(addDaysToIsoDate(referenceDate, -7))
+                }
+                title="Semana anterior"
+                type="button"
+              >
+                <ChevronLeft aria-hidden="true" size={18} />
+              </button>
+              <button
+                aria-label="Próxima semana"
+                className={`${navigationButtonClass} order-3 w-full min-w-0 sm:col-start-3 sm:row-start-1 sm:w-11 sm:min-w-11`}
+                disabled={referenceDate >= getToday()}
+                onClick={() =>
+                  changeReferenceDate(addDaysToIsoDate(referenceDate, 7))
+                }
+                title="Próxima semana"
+                type="button"
+              >
+                <ChevronRight aria-hidden="true" size={18} />
+              </button>
+              </div>
+            ) : (
             <div className="flex min-w-0 items-center gap-1.5">
               <button
                 aria-label={
                   period === "year"
                     ? "Ano anterior"
-                    : period === "week"
-                      ? "Semana anterior"
-                      : "Período anterior"
+                    : "Período anterior"
                 }
-                className={`${inputClass} ${controlHeightClass} !w-11 !min-w-11 shrink-0 flex items-center justify-center bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] disabled:cursor-not-allowed disabled:opacity-45`}
+                className={`${navigationButtonClass} !w-11 !min-w-11 shrink-0`}
                 disabled={
                   period === "year"
                     ? referenceYear <= "2000"
-                    : period === "week"
-                      ? referenceDate <= "2000-01-01"
                     : referenceMonthIndex === null ||
                       referenceMonthIndex <= minimumMonthIndex
                 }
                 onClick={() =>
                   period === "year"
                     ? changeReferenceYear(String(Number(referenceYear) - 1))
-                    : period === "week"
-                      ? changeReferenceDate(addDaysToIsoDate(referenceDate, -7))
                     : navigateReferenceMonth(period === "month" ? -1 : -3)
                 }
-                title={
-                  period === "year"
-                    ? "Ano anterior"
-                    : period === "week"
-                      ? "Semana anterior"
-                      : "Período anterior"
-                }
+                title={period === "year" ? "Ano anterior" : "Período anterior"}
                 type="button"
               >
                 <ChevronLeft aria-hidden="true" size={18} />
               </button>
-              {period === "week" && (
-                <input
-                  aria-label="Data de referência do relatório semanal"
-                  className={`${inputClass} ${controlHeightClass} min-w-0 flex-1`}
-                  max={getToday()}
-                  onChange={(event) => changeReferenceDate(event.target.value)}
-                  type="date"
-                  value={referenceDate}
-                />
-              )}
-              {period !== "year" && period !== "week" && <select
+              {period !== "year" && <select
                 aria-label="Referência do período"
                 className={`${inputClass} ${controlHeightClass} min-w-0 flex-1 cursor-pointer`}
                 onChange={(event) =>
@@ -283,38 +332,31 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
                 aria-label={
                   period === "year"
                     ? "Próximo ano"
-                    : period === "week"
-                      ? "Próxima semana"
-                      : "Próximo período"
+                    : "Próximo período"
                 }
-                className={`${inputClass} ${controlHeightClass} !w-11 !min-w-11 shrink-0 flex items-center justify-center bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] disabled:cursor-not-allowed disabled:opacity-45`}
+                className={`${navigationButtonClass} !w-11 !min-w-11 shrink-0`}
                 disabled={
                   period === "year"
                     ? referenceYear >= currentYear
-                    : period === "week"
-                      ? referenceDate >= getToday()
                     : referenceMonthIndex === null ||
                       referenceMonthIndex >= currentMonthIndex
                 }
                 onClick={() =>
                   period === "year"
                     ? changeReferenceYear(String(Number(referenceYear) + 1))
-                    : period === "week"
-                      ? changeReferenceDate(addDaysToIsoDate(referenceDate, 7))
                     : navigateReferenceMonth(period === "month" ? 1 : 3)
                 }
                 title={
                   period === "year"
                     ? "Próximo ano"
-                    : period === "week"
-                      ? "Próxima semana"
-                      : "Próximo período"
+                    : "Próximo período"
                 }
                 type="button"
               >
                 <ChevronRight aria-hidden="true" size={18} />
               </button>
             </div>
+            )}
           </div>
           {period !== "year" && period !== "week" && <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
             Ano
