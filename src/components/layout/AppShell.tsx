@@ -1,8 +1,13 @@
 import { Scissors } from "lucide-react";
 import type { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
+import { useAuth } from "../../auth/authContext";
+import { Button } from "../ui/Button";
 import { Navigation } from "./Navigation";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children }: { children?: ReactNode }) {
+  const { signOut, user } = useAuth();
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between gap-4 bg-[#17211b] px-5 py-4 text-[#f5f7f4] sm:px-8 sm:py-5">
@@ -12,10 +17,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <span>DailyCheckout</span>
         </div>
-        <p className="m-0 text-xs text-[#b8c5bb]">Gestão da barbearia</p>
+        <div className="flex items-center gap-3">
+          <p className="m-0 hidden text-xs text-[#b8c5bb] sm:block">
+            {user?.name ?? user?.email ?? "Usuário autenticado"}
+          </p>
+          <Button
+            className="min-h-9 bg-transparent px-2.5 text-xs text-[#b8c5bb] shadow-none hover:bg-white/10"
+            onClick={() => void signOut()}
+            type="button"
+          >
+            Sair
+          </Button>
+        </div>
       </header>
       <main className="mx-auto w-full max-w-[70rem] flex-1 px-4 py-6 pb-26 sm:px-8 sm:py-10 sm:pb-26">
-        {children}
+        {children ?? <Outlet />}
       </main>
       <Navigation />
     </div>

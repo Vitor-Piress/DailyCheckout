@@ -1,14 +1,12 @@
+import { authClient, getAuthToken } from "../auth/authClient";
+
 export type ApiErrorDetails = Record<string, unknown>[];
 
 export class ApiError extends Error {
   readonly status: number;
   readonly details?: ApiErrorDetails;
 
-  constructor(
-    message: string,
-    status: number,
-    details?: ApiErrorDetails,
-  ) {
+  constructor(message: string, status: number, details?: ApiErrorDetails) {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -37,6 +35,14 @@ function getErrorMessage(body: unknown, status: number): string {
     typeof body.error === "string"
   ) {
     return body.error;
+  }
+
+  if (status === 401) {
+    return "Sua sessão expirou ou não é válida. Faça login novamente.";
+  }
+
+  if (status === 403) {
+    return "Você está autenticado, mas não tem permissão para acessar este recurso.";
   }
 
   return `A API retornou um erro HTTP ${status}.`;
@@ -69,6 +75,13 @@ export async function request<T>(
     );
   }
 
+  const token = await getAuthToken();
+
+  if (!token) {
+    window.dispatchEvent(new Event("auth:session-expired"));
+    throw new ApiError("Sua sessão não está disponível. Faça login novamente.", 401);
+  }
+
   let response: Response;
 
   try {
@@ -76,6 +89,7 @@ export async function request<T>(
       ...options,
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${token}`,
         ...options.headers,
       },
     });
@@ -91,6 +105,12 @@ export async function request<T>(
   const body = await readResponseBody(response);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      void authClient.signOut().finally(() => {
+        window.dispatchEvent(new Event("auth:session-expired"));
+      });
+    }
+
     throw new ApiError(
       getErrorMessage(body, response.status),
       response.status,
