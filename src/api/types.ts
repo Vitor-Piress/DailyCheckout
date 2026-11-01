@@ -7,7 +7,7 @@ export type PaymentMethod =
   | "debit_card"
   | "other";
 
-export type Period = "month" | "quarter" | "semester" | "year";
+export type Period = "week" | "month" | "quarter" | "semester" | "year";
 
 export type UserProfile = {
   id: string;

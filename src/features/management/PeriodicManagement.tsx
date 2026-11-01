@@ -11,7 +11,10 @@ import { MetricCard } from "../../components/ui/MetricCard";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCurrency,
+  addDaysToIsoDate,
+  formatIsoDate,
   getCurrentMonth,
+  getToday,
   monthOptions,
   paymentMethodLabel,
   periodOptions,
@@ -26,6 +29,7 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
     currentMonthNumber,
   );
   const [referenceYear, setReferenceYear] = useState(currentYear);
+  const [referenceDate, setReferenceDate] = useState(getToday);
   const [report, setReport] = useState<PeriodicReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +39,7 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
     if (value === "quarter") {
       return String(Math.floor((monthNumber - 1) / 3) * 3 + 1).padStart(2, "0");
     }
+
     if (value === "semester") {
       return monthNumber <= 6 ? "01" : "07";
     }
@@ -45,8 +50,11 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
   }
 
   useEffect(() => {
-    const referenceMonth = `${referenceYear}-${referenceMonthNumber}`;
-    void getPeriodicReport(period, `${referenceMonth}-01`)
+    const requestDate =
+      period === "week"
+        ? referenceDate
+        : `${referenceYear}-${referenceMonthNumber}-01`;
+    void getPeriodicReport(period, requestDate)
       .then(setReport)
       .catch((cause: unknown) => {
         console.error("Não foi possível carregar o relatório periódico:", cause);
@@ -60,14 +68,18 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
         );
       })
       .finally(() => setLoading(false));
-  }, [period, referenceMonthNumber, referenceYear, refreshToken]);
+  }, [period, referenceDate, referenceMonthNumber, referenceYear, refreshToken]);
 
   function changePeriod(value: Period) {
     setLoading(true);
     setError(null);
     setReport(null);
     setPeriod(value);
-    setReferenceMonthNumber((month) => periodStartMonth(value, month));
+    if (value === "week") {
+      setReferenceDate(getToday());
+    } else {
+      setReferenceMonthNumber((month) => periodStartMonth(value, month));
+    }
   }
 
   function changeReferenceMonth(value: string) {
@@ -127,6 +139,16 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
     }
   }
 
+  function changeReferenceDate(value: string) {
+    if (!value) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setReport(null);
+    setReferenceDate(value);
+  }
+
   const periodMonthOptions =
     period === "quarter"
       ? [
@@ -141,6 +163,8 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
             { value: "07", label: "Jul - Dez" },
           ]
         : monthOptions;
+  const reportEndDate =
+    report && period === "week" ? addDaysToIsoDate(report.endDate, -1) : report?.endDate;
   return (
     <div className="grid gap-4 rounded-2xl border border-[#dce5dd] bg-white p-5 shadow-[0_0.5rem_1.5rem_rgb(23_33_27/5%)]">
       <div className="flex items-center justify-between gap-4">
@@ -166,28 +190,60 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
         </label>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem] sm:items-end">
           <div className="grid min-w-0 gap-1.5 text-sm font-bold text-[#34443a]">
-            <span>{period === "year" ? "Ano de referência" : "Referência"}</span>
+            <span>
+              {period === "year"
+                ? "Ano de referência"
+                : period === "week"
+                  ? "Data de referência"
+                  : "Referência"}
+            </span>
             <div className="flex min-w-0 items-center gap-1.5">
               <button
-                aria-label={period === "year" ? "Ano anterior" : "Período anterior"}
+                aria-label={
+                  period === "year"
+                    ? "Ano anterior"
+                    : period === "week"
+                      ? "Semana anterior"
+                      : "Período anterior"
+                }
                 className={`${inputClass} ${controlHeightClass} !w-11 !min-w-11 shrink-0 flex items-center justify-center bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] disabled:cursor-not-allowed disabled:opacity-45`}
                 disabled={
                   period === "year"
                     ? referenceYear <= "2000"
+                    : period === "week"
+                      ? referenceDate <= "2000-01-01"
                     : referenceMonthIndex === null ||
                       referenceMonthIndex <= minimumMonthIndex
                 }
                 onClick={() =>
                   period === "year"
                     ? changeReferenceYear(String(Number(referenceYear) - 1))
+                    : period === "week"
+                      ? changeReferenceDate(addDaysToIsoDate(referenceDate, -7))
                     : navigateReferenceMonth(period === "month" ? -1 : -3)
                 }
-                title={period === "year" ? "Ano anterior" : "Período anterior"}
+                title={
+                  period === "year"
+                    ? "Ano anterior"
+                    : period === "week"
+                      ? "Semana anterior"
+                      : "Período anterior"
+                }
                 type="button"
               >
                 <ChevronLeft aria-hidden="true" size={18} />
               </button>
-              {period !== "year" && <select
+              {period === "week" && (
+                <input
+                  aria-label="Data de referência do relatório semanal"
+                  className={`${inputClass} ${controlHeightClass} min-w-0 flex-1`}
+                  max={getToday()}
+                  onChange={(event) => changeReferenceDate(event.target.value)}
+                  type="date"
+                  value={referenceDate}
+                />
+              )}
+              {period !== "year" && period !== "week" && <select
                 aria-label="Referência do período"
                 className={`${inputClass} ${controlHeightClass} min-w-0 flex-1 cursor-pointer`}
                 onChange={(event) =>
@@ -224,27 +280,43 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
                 />
               )}
               <button
-                aria-label={period === "year" ? "Próximo ano" : "Próximo período"}
+                aria-label={
+                  period === "year"
+                    ? "Próximo ano"
+                    : period === "week"
+                      ? "Próxima semana"
+                      : "Próximo período"
+                }
                 className={`${inputClass} ${controlHeightClass} !w-11 !min-w-11 shrink-0 flex items-center justify-center bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] disabled:cursor-not-allowed disabled:opacity-45`}
                 disabled={
                   period === "year"
                     ? referenceYear >= currentYear
+                    : period === "week"
+                      ? referenceDate >= getToday()
                     : referenceMonthIndex === null ||
                       referenceMonthIndex >= currentMonthIndex
                 }
                 onClick={() =>
                   period === "year"
                     ? changeReferenceYear(String(Number(referenceYear) + 1))
+                    : period === "week"
+                      ? changeReferenceDate(addDaysToIsoDate(referenceDate, 7))
                     : navigateReferenceMonth(period === "month" ? 1 : 3)
                 }
-                title={period === "year" ? "Próximo ano" : "Próximo período"}
+                title={
+                  period === "year"
+                    ? "Próximo ano"
+                    : period === "week"
+                      ? "Próxima semana"
+                      : "Próximo período"
+                }
                 type="button"
               >
                 <ChevronRight aria-hidden="true" size={18} />
               </button>
             </div>
           </div>
-          {period !== "year" && <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+          {period !== "year" && period !== "week" && <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
             Ano
             <input
               aria-label="Ano inicial"
@@ -268,7 +340,11 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
           className="motion-content grid gap-4"
           key={`${period}-${referenceMonth}`}
         >
-          <p className="m-0 text-sm text-[#617067]">Período: {report.startDate} a {report.endDate}</p>
+          <p className="m-0 text-sm text-[#617067]">
+            {period === "week" ? "Semana" : "Período"}:{" "}
+            {formatIsoDate(report.startDate)} a{" "}
+            {formatIsoDate(reportEndDate ?? report.endDate)}
+          </p>
           <div className="motion-stagger grid min-w-0 grid-cols-1 gap-4 min-[26rem]:grid-cols-2 sm:grid-cols-4">
             <MetricCard label="Receita bruta" value={formatCurrency(report.grossRevenueCents)} />
             <MetricCard label="Despesas" value={formatCurrency(report.expensesCents)} />

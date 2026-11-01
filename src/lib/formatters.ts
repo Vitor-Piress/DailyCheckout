@@ -9,11 +9,28 @@ export const paymentOptions: Array<{ value: PaymentMethod; label: string }> = [
 ];
 
 export const periodOptions = [
+  { value: "week", label: "Semanal" },
   { value: "month", label: "Mensal" },
   { value: "quarter", label: "Trimestral" },
   { value: "semester", label: "Semestral" },
   { value: "year", label: "Anual" },
 ] as const;
+
+export function addDaysToIsoDate(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day + days));
+  return value.toISOString().slice(0, 10);
+}
+
+export function formatIsoDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
 
 export const monthOptions = [
   { value: "01", label: "Janeiro" },
