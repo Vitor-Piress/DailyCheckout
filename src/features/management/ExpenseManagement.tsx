@@ -123,6 +123,7 @@ export function ExpenseManagement({ refreshToken = 0 }: { refreshToken?: number 
                 const month = `${selectedYear}-${event.target.value}`;
                 setLoading(true);
                 setError(null);
+                setExpenses([]);
                 setSelectedMonthNumber(event.target.value);
                 setExpenseDate(
                   month === getCurrentMonth() ? getToday() : `${month}-01`,
@@ -155,6 +156,7 @@ export function ExpenseManagement({ refreshToken = 0 }: { refreshToken?: number 
                 const year = event.target.value;
                 setLoading(true);
                 setError(null);
+                setExpenses([]);
                 setSelectedYear(year);
                 const month = `${year}-${selectedMonthNumber}`;
                 if (/^\d{4}$/.test(year)) {
@@ -174,7 +176,11 @@ export function ExpenseManagement({ refreshToken = 0 }: { refreshToken?: number 
       </div>
       {loading && <LoadingMessage>Carregando despesas...</LoadingMessage>}
       {!loading && !error && expenses.length === 0 && <p className="m-0 text-[#617067]">Nenhuma despesa lançada neste mês.</p>}
-      {!loading && expenses.length > 0 && <ul className="m-0 grid list-none gap-3 p-0">{expenses.map((expense) => <li className="flex items-center justify-between gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3" key={expense.id}><span className="grid gap-0.5"><strong>{expense.description}</strong><small className="text-xs text-[#617067]">{formatDate(expense.occurredAt)} · {paymentMethodLabel(expense.paymentMethod)}{expense.category ? ` · ${expense.category}` : ""}</small></span><b className="whitespace-nowrap text-[#a83e3e]">{formatCurrency(expense.amountCents)}</b></li>)}</ul>}
+      {!loading && expenses.length > 0 && (
+        <ul className="motion-stagger m-0 grid list-none gap-3 p-0" key={selectedMonth}>
+          {expenses.map((expense) => <li className="flex items-center justify-between gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3" key={expense.id}><span className="grid gap-0.5"><strong>{expense.description}</strong><small className="text-xs text-[#617067]">{formatDate(expense.occurredAt)} · {paymentMethodLabel(expense.paymentMethod)}{expense.category ? ` · ${expense.category}` : ""}</small></span><b className="whitespace-nowrap text-[#a83e3e]">{formatCurrency(expense.amountCents)}</b></li>)}
+        </ul>
+      )}
       <Button
         aria-expanded={isFormOpen}
         className="flex w-full items-center justify-center gap-2"
@@ -185,7 +191,12 @@ export function ExpenseManagement({ refreshToken = 0 }: { refreshToken?: number 
         {isFormOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         <span>{isFormOpen ? "Fechar formulário" : "Adicionar despesa"}</span>
       </Button>
-      {isFormOpen && (
+      <div
+        aria-hidden={!isFormOpen}
+        className="motion-expand"
+        data-expanded={isFormOpen}
+        inert={!isFormOpen}
+      >
         <form className="grid gap-3.5" onSubmit={(event) => void handleSubmit(event)}>
           <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Data da despesa<input className={fieldClass} max={getToday()} min={`${selectedMonth}-01`} onChange={(event) => setExpenseDate(event.target.value)} type="date" value={expenseDate} /></label>
           <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Descrição<input className={fieldClass} maxLength={200} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: produtos de limpeza" required type="text" value={description} /></label>
@@ -195,7 +206,7 @@ export function ExpenseManagement({ refreshToken = 0 }: { refreshToken?: number 
           <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">Observações (opcional)<textarea className={fieldClass} maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder="Detalhes adicionais" rows={3} value={notes} /></label>
           <Button disabled={submitting} type="submit">{submitting ? "Lançando..." : "Lançar despesa"}</Button>
         </form>
-      )}
+      </div>
       {success && <FeedbackMessage message={success} onClose={() => setSuccess(null)} />}
       {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
     </div>

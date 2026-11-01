@@ -71,6 +71,8 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
           onChange={(event) => {
             setLoading(true);
             setError(null);
+            setReport(null);
+            setRecords([]);
             setDate(event.target.value);
           }}
           type="date"
@@ -81,7 +83,7 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
       {!loading && !error && report && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="motion-content grid gap-4 sm:grid-cols-2" key={date}>
             <MetricCard label="Atendimentos" value={report.serviceCount} />
             <MetricCard label="Receita bruta" value={formatCurrency(report.grossRevenueCents)} />
           </div>

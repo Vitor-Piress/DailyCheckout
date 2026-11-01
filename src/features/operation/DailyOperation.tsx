@@ -111,9 +111,11 @@ export function DailyOperation() {
       {!loading && !error && services.length > 0 && (
         <div className="mx-auto w-full max-w-[42rem]">
           {!selectedService ? (
-            <ServiceSelector onSelect={chooseService} services={services} />
+            <div className="motion-content">
+              <ServiceSelector onSelect={chooseService} services={services} />
+            </div>
           ) : (
-            <Panel className="grid gap-5">
+            <Panel className="motion-content grid gap-5" key={selectedService.id}>
               <div className="grid gap-3.5">
                 <div className="flex items-center gap-4">
                   <IconButton

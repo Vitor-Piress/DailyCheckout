@@ -15,7 +15,7 @@ export function PaymentMethodSelector({
       </legend>
       {paymentOptions.map((option) => (
         <label
-          className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[0.65rem] border p-2.5 text-[#34443a] ${
+          className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[0.65rem] border p-2.5 text-[#34443a] transition-[background-color,border-color,transform] duration-180 active:scale-[0.99] ${
             value === option.value
               ? "border-[#4a7957] bg-[#e8f2ea]"
               : "border-[#dce5dd]"

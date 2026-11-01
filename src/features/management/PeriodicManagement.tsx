@@ -37,12 +37,14 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
   function changePeriod(value: Period) {
     setLoading(true);
     setError(null);
+    setReport(null);
     setPeriod(value);
   }
 
   function changeDate(value: string) {
     setLoading(true);
     setError(null);
+    setReport(null);
     setDate(value);
   }
 
@@ -59,7 +61,21 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
       </div>
       {loading && <LoadingMessage>Carregando relatório periódico...</LoadingMessage>}
       {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
-      {!loading && !error && report && <><p className="m-0 text-sm text-[#617067]">Período: {report.startDate} a {report.endDate}</p><div className="grid grid-cols-2 gap-4 sm:grid-cols-4"><MetricCard label="Receita bruta" value={formatCurrency(report.grossRevenueCents)} /><MetricCard label="Despesas" value={formatCurrency(report.expensesCents)} /><MetricCard label="Resultado líquido" value={formatCurrency(report.netRevenueCents)} /><MetricCard label="Atendimentos" value={report.serviceCount} /></div><div><h2 className="mb-4 text-base">Despesas por forma de pagamento</h2><SummaryList emptyMessage="Nenhuma despesa registrada neste período." items={report.expensesByPaymentMethod.map((payment) => ({ label: paymentMethodLabel(payment.paymentMethod), detail: `${payment.quantity} despesa(s)`, value: formatCurrency(payment.totalCents) }))} /></div></>}
+      {!loading && !error && report && (
+        <div className="motion-content grid gap-4" key={`${period}-${date}`}>
+          <p className="m-0 text-sm text-[#617067]">Período: {report.startDate} a {report.endDate}</p>
+          <div className="motion-stagger grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <MetricCard label="Receita bruta" value={formatCurrency(report.grossRevenueCents)} />
+            <MetricCard label="Despesas" value={formatCurrency(report.expensesCents)} />
+            <MetricCard label="Resultado líquido" value={formatCurrency(report.netRevenueCents)} />
+            <MetricCard label="Atendimentos" value={report.serviceCount} />
+          </div>
+          <div>
+            <h2 className="mb-4 text-base">Despesas por forma de pagamento</h2>
+            <SummaryList emptyMessage="Nenhuma despesa registrada neste período." items={report.expensesByPaymentMethod.map((payment) => ({ label: paymentMethodLabel(payment.paymentMethod), detail: `${payment.quantity} despesa(s)`, value: formatCurrency(payment.totalCents) }))} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

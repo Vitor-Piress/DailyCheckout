@@ -25,6 +25,16 @@
   overscroll-behavior: none;
 }
 
+[data-motion="disabled"] .motion-expand {
+  display: block;
+  opacity: 1;
+  transform: none;
+}
+
+[data-motion="disabled"] .motion-expand[data-expanded="false"] {
+  display: none;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -64,6 +74,56 @@ a {
 
 .motion-page {
   animation: page-enter 240ms ease-out both;
+}
+
+.motion-content {
+  animation: content-enter 180ms ease-out both;
+}
+
+.motion-stagger > * {
+  animation: content-enter 180ms ease-out both;
+}
+
+.motion-stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.motion-stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.motion-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    grid-template-rows 180ms ease-out,
+    opacity 180ms ease-out,
+    transform 180ms ease-out;
+}
+
+.motion-expand[data-expanded="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.motion-expand > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes page-enter {
