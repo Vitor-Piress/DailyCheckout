@@ -9,8 +9,10 @@ export function Navigation() {
     >
       <NavLink
         className={({ isActive }) =>
-          `flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-bold ${
-            isActive ? "bg-[#e8f2ea] text-[#2f6840]" : "text-[#617067]"
+          `flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.98] ${
+            isActive
+              ? "bg-[#e8f2ea] text-[#2f6840] shadow-[inset_0_-2px_0_#2f6840]"
+              : "text-[#617067] hover:bg-[#f5f7f4] hover:text-[#2f6840]"
           } sm:min-w-36`
         }
         end
@@ -21,8 +23,10 @@ export function Navigation() {
       </NavLink>
       <NavLink
         className={({ isActive }) =>
-          `flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-bold ${
-            isActive ? "bg-[#e8f2ea] text-[#2f6840]" : "text-[#617067]"
+          `flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.98] ${
+            isActive
+              ? "bg-[#e8f2ea] text-[#2f6840] shadow-[inset_0_-2px_0_#2f6840]"
+              : "text-[#617067] hover:bg-[#f5f7f4] hover:text-[#2f6840]"
           } sm:min-w-36`
         }
         to="/gestao"
