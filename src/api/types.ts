@@ -81,6 +81,40 @@ export type PaymentSummary = {
   totalCents: number;
 };
 
+export type SettlementOperator = {
+  userId: string;
+  userName: string;
+  grossServicesCents: number;
+  operatorShareCents: number;
+  adminShareCents: number;
+  serviceCount: number;
+};
+
+export type DailySettlementReport = {
+  adminOwnServicesCents: number;
+  dailyOperatorsShareCents: number;
+  adminDailyOperatorsShareCents: number;
+  adminTotalDueCents: number;
+  dailyOperatorsTotalDueCents: number;
+  grossServicesCents: number;
+  dailyOperators: SettlementOperator[];
+  settlementStatus: "open";
+};
+
+export type DailySettlement = {
+  date: string;
+  status: "open" | "closed";
+  closedAt: string | null;
+  admin: {
+    ownServicesCents: number;
+    dailyOperatorsShareCents: number;
+    totalDueCents: number;
+  };
+  dailyOperators: SettlementOperator[];
+  grossServicesCents: number;
+  dailyOperatorsTotalDueCents: number;
+};
+
 export type UserServiceSummary = {
   serviceTypeId: string;
   serviceName: string;
@@ -104,6 +138,7 @@ export type DailyReport = {
   serviceCount: number;
   grossRevenueCents: number;
   users: UserReportSummary[];
+  settlement: DailySettlementReport | null;
 };
 
 export type PeriodicReport = {

@@ -3,6 +3,7 @@ import type {
   CreateExpenseInput,
   CreateServiceRecordInput,
   DailyReport,
+  DailySettlement,
   Expense,
   Period,
   PeriodicReport,
@@ -86,6 +87,20 @@ export function listExpensesByMonth(month: string): Promise<Expense[]> {
 
 export function getDailyReport(date: string): Promise<DailyReport> {
   return request<DailyReport>(`/reports/daily${dateQuery(date)}`);
+}
+
+export function getDailySettlement(date: string): Promise<DailySettlement> {
+  return request<DailySettlement>(`/settlements/daily${dateQuery(date)}`);
+}
+
+export function closeDailySettlement(date: string): Promise<DailySettlement> {
+  return request<DailySettlement>("/settlements/daily/close", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ date }),
+  });
 }
 
 export function getPeriodicReport(
