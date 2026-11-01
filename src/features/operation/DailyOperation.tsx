@@ -17,8 +17,12 @@ import { ServiceSelector } from "./ServiceSelector";
 
 export function DailyOperation() {
   const [services, setServices] = useState<ServiceType[]>([]);
-  const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceType | null>(
+    null,
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +33,9 @@ export function DailyOperation() {
       .then(setServices)
       .catch((cause: unknown) => {
         console.error("Não foi possível carregar os serviços:", cause);
-        setError(getApiErrorMessage(cause, "Não foi possível carregar os serviços."));
+        setError(
+          getApiErrorMessage(cause, "Não foi possível carregar os serviços."),
+        );
       })
       .finally(() => setLoading(false));
   }, []);
@@ -56,7 +62,9 @@ export function DailyOperation() {
       setPaymentMethod(null);
     } catch (cause: unknown) {
       console.error("Não foi possível registrar o atendimento:", cause);
-      setError(getApiErrorMessage(cause, "Não foi possível registrar o atendimento."));
+      setError(
+        getApiErrorMessage(cause, "Não foi possível registrar o atendimento."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -72,9 +80,9 @@ export function DailyOperation() {
           <h1 className="mb-1.5 text-[clamp(1.75rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]">
             Operação diária
           </h1>
-          <p className="m-0 max-w-[34rem] text-[#617067]">
+          {/* <p className="m-0 max-w-[34rem] text-[#617067]">
             Registre os serviços realizados durante o expediente.
-          </p>
+          </p> */}
         </div>
         <div className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#dce5dd] bg-white px-2.5 py-2 text-xs font-bold text-[#4a7957]">
           <CalendarDays size={18} />
@@ -93,7 +101,10 @@ export function DailyOperation() {
         </EmptyState>
       )}
       {!loading && !error && services.length === 0 && (
-        <EmptyState icon={<Scissors size={28} />} title="Nenhum serviço disponível">
+        <EmptyState
+          icon={<Scissors size={28} />}
+          title="Nenhum serviço disponível"
+        >
           Cadastre um serviço ativo para começar a registrar atendimentos.
         </EmptyState>
       )}
@@ -122,7 +133,10 @@ export function DailyOperation() {
                 </div>
                 <ServiceBadge service={selectedService} />
               </div>
-              <PaymentMethodSelector onChange={setPaymentMethod} value={paymentMethod} />
+              <PaymentMethodSelector
+                onChange={setPaymentMethod}
+                value={paymentMethod}
+              />
               <Button
                 disabled={!paymentMethod || submitting}
                 onClick={() => void handleSubmit()}
@@ -134,7 +148,9 @@ export function DailyOperation() {
           )}
         </div>
       )}
-      {success && <FeedbackMessage message={success} onClose={() => setSuccess(null)} />}
+      {success && (
+        <FeedbackMessage message={success} onClose={() => setSuccess(null)} />
+      )}
     </section>
   );
 }

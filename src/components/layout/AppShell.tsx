@@ -15,12 +15,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <div className="grid h-8 w-8 place-items-center rounded-[0.65rem] bg-[#b6d7bd] text-[#17211b]">
             <Scissors size={22} />
           </div>
-          <span>DailyCheckout</span>
+          <span>Bem-vindo, {user?.name ?? user?.email ?? "usuário"}</span>
         </div>
         <div className="flex items-center gap-3">
-          <p className="m-0 hidden text-xs text-[#b8c5bb] sm:block">
-            {user?.name ?? user?.email ?? "Usuário autenticado"}
-          </p>
           <Button
             className="min-h-9 bg-transparent px-2.5 text-xs text-[#b8c5bb] shadow-none hover:bg-white/10"
             onClick={() => void signOut()}
