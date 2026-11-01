@@ -1,4 +1,5 @@
 import type { ServiceType } from "../../api/types";
+import { formatCurrency } from "../../lib/formatters";
 import { getServiceIcon } from "./serviceIcons";
 
 export function ServiceSelector({
@@ -34,6 +35,9 @@ export function ServiceSelector({
               />
             )}
             <span className="font-bold">{service.name}</span>
+            <strong className="text-sm font-bold text-[#2f6840]">
+              {formatCurrency(service.priceCents)}
+            </strong>
             {service.description && (
               <small className="text-xs font-medium text-[#617067]">
                 {service.description}

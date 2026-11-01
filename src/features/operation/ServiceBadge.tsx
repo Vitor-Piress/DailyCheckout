@@ -1,5 +1,6 @@
 import type { ServiceType } from "../../api/types";
 import { Badge } from "../../components/ui/Badge";
+import { formatCurrency } from "../../lib/formatters";
 import { getServiceIcon } from "./serviceIcons";
 
 export function ServiceBadge({ service }: { service: ServiceType }) {
@@ -14,6 +15,9 @@ export function ServiceBadge({ service }: { service: ServiceType }) {
         FallbackIcon && <FallbackIcon aria-hidden="true" size={24} strokeWidth={1.8} />
       )}
       <span>{service.name}</span>
+      <strong className="ml-auto text-[#2f6840]">
+        {formatCurrency(service.priceCents)}
+      </strong>
     </Badge>
   );
 }
