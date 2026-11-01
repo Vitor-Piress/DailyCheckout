@@ -6,6 +6,7 @@ import {
 } from "../../api/dailyCheckoutApi";
 import type { DailyReport, ServiceRecord } from "../../api/types";
 import { ReportList } from "../../components/reports/ReportList";
+import { UserReportGroups } from "../../components/reports/UserReportGroups";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { MetricCard } from "../../components/ui/MetricCard";
@@ -140,6 +141,7 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               title="Resumo por pagamento"
             />
           </div>
+          <UserReportGroups users={report.users ?? []} />
           <Panel>
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>

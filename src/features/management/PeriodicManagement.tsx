@@ -4,6 +4,7 @@ import { getPeriodicReport } from "../../api/dailyCheckoutApi";
 import { ApiError } from "../../api/client";
 import type { Period, PeriodicReport } from "../../api/types";
 import { SummaryList } from "../../components/reports/SummaryList";
+import { UserReportGroups } from "../../components/reports/UserReportGroups";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { MetricCard } from "../../components/ui/MetricCard";
@@ -278,6 +279,7 @@ export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number
             <h2 className="mb-4 text-base">Despesas por forma de pagamento</h2>
             <SummaryList emptyMessage="Nenhuma despesa registrada neste período." items={report.expensesByPaymentMethod.map((payment) => ({ label: paymentMethodLabel(payment.paymentMethod), detail: `${payment.quantity} despesa(s)`, value: formatCurrency(payment.totalCents) }))} />
           </div>
+          <UserReportGroups users={report.users ?? []} />
         </div>
       )}
     </div>

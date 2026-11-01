@@ -81,12 +81,29 @@ export type PaymentSummary = {
   totalCents: number;
 };
 
+export type UserServiceSummary = {
+  serviceTypeId: string;
+  serviceName: string;
+  quantity: number;
+  totalCents: number;
+};
+
+export type UserReportSummary = {
+  userId: string | null;
+  userName: string;
+  role: UserRole | null;
+  serviceCount: number;
+  grossRevenueCents: number;
+  services: UserServiceSummary[];
+};
+
 export type DailyReport = {
   date: string;
   services: ServiceSummary[];
   paymentMethods: PaymentSummary[];
   serviceCount: number;
   grossRevenueCents: number;
+  users: UserReportSummary[];
 };
 
 export type PeriodicReport = {
@@ -99,4 +116,5 @@ export type PeriodicReport = {
   expensesCents: number;
   netRevenueCents: number;
   expensesByPaymentMethod: PaymentSummary[];
+  users: UserReportSummary[];
 };
