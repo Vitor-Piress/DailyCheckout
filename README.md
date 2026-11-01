@@ -1,5 +1,19 @@
 # React + TypeScript + Vite
 
+## Perfil de acesso
+
+Depois de restaurar a sessão do Neon Auth, o frontend consulta `GET /me` na API
+(ou o caminho definido em `VITE_PROFILE_PATH`) usando o token da sessão. A API
+deve responder com JSON no formato `{ "role": "admin" }` ou
+`{ "role": "daily_operator" }`. A role vem do perfil da aplicação
+(por exemplo, `app_users`) e não é inferida por e-mail, nome, ID ou token do
+Neon Auth.
+
+O frontend usa essa resposta somente para refletir permissões na interface e
+redirecionar rotas restritas. A API continua responsável por autorizar as
+operações e deve retornar `401` para sessão inválida/ausente e `403` para
+usuário autenticado sem permissão.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

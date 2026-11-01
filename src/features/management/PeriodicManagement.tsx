@@ -1,6 +1,7 @@
 import { BarChart3 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getPeriodicReport } from "../../api/dailyCheckoutApi";
+import { ApiError } from "../../api/client";
 import type { Period, PeriodicReport } from "../../api/types";
 import { SummaryList } from "../../components/reports/SummaryList";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
@@ -9,7 +10,7 @@ import { MetricCard } from "../../components/ui/MetricCard";
 import { getApiErrorMessage } from "../../lib/errors";
 import { formatCurrency, getToday, paymentMethodLabel, periodOptions } from "../../lib/formatters";
 
-export function PeriodicManagement({ refreshToken }: { refreshToken: number }) {
+export function PeriodicManagement({ refreshToken = 0 }: { refreshToken?: number }) {
   const [period, setPeriod] = useState<Period>("month");
   const [date, setDate] = useState(getToday);
   const [report, setReport] = useState<PeriodicReport | null>(null);
@@ -21,7 +22,14 @@ export function PeriodicManagement({ refreshToken }: { refreshToken: number }) {
       .then(setReport)
       .catch((cause: unknown) => {
         console.error("Não foi possível carregar o relatório periódico:", cause);
-        setError(getApiErrorMessage(cause, "Não foi possível carregar o relatório periódico."));
+        setError(
+          cause instanceof ApiError && cause.status === 403
+            ? "Este relatório é restrito ao perfil administrador."
+            : getApiErrorMessage(
+                cause,
+                "Não foi possível carregar o relatório periódico.",
+              ),
+        );
       })
       .finally(() => setLoading(false));
   }, [date, period, refreshToken]);

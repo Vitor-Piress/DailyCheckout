@@ -1,3 +1,5 @@
+import type { UserRole } from "../auth/roles";
+
 export type PaymentMethod =
   | "cash"
   | "pix"
@@ -6,6 +8,13 @@ export type PaymentMethod =
   | "other";
 
 export type Period = "month" | "quarter" | "semester" | "year";
+
+export type UserProfile = {
+  id: string;
+  authUserId: string;
+  name: string;
+  role: UserRole;
+};
 
 export type ServiceType = {
   id: string;
@@ -30,6 +39,13 @@ export type ServiceRecord = {
   occurredAt: string;
   notes?: string | null;
   createdAt: string;
+  createdBy: ServiceRecordAuthor | null;
+};
+
+export type ServiceRecordAuthor = {
+  id: string;
+  name: string;
+  role: UserRole;
 };
 
 export type CreateExpenseInput = {

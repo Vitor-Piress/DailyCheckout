@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { getApiErrorMessage } from "../../lib/errors";
+import { ApiError } from "../../api/client";
 import {
   formatCurrency,
   formatDate,
@@ -23,7 +24,7 @@ import {
 
 const fieldClass = "w-full rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 text-[#23372a] font-normal focus-visible:outline-2 focus-visible:outline-[#2f6840]";
 
-export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
+export function ExpenseManagement({ refreshToken = 0 }: { refreshToken?: number }) {
   const currentMonth = getCurrentMonth();
   const currentYear = currentMonth.slice(0, 4);
   const currentMonthNumber = currentMonth.slice(5, 7);
@@ -57,7 +58,11 @@ export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
       .then(setExpenses)
       .catch((cause: unknown) => {
         console.error("Não foi possível carregar as despesas:", cause);
-        setError(getApiErrorMessage(cause, "Não foi possível carregar as despesas."));
+        setError(
+          cause instanceof ApiError && cause.status === 403
+            ? "Seu perfil não possui acesso às despesas."
+            : getApiErrorMessage(cause, "Não foi possível carregar as despesas."),
+        );
       })
       .finally(() => setLoading(false));
   }, [selectedMonth, refreshToken]);
@@ -90,7 +95,11 @@ export function ExpenseManagement({ refreshToken }: { refreshToken: number }) {
       setExpenses(await listExpensesByMonth(selectedMonth));
     } catch (cause: unknown) {
       console.error("Não foi possível lançar a despesa:", cause);
-      setError(getApiErrorMessage(cause, "Não foi possível lançar a despesa."));
+      setError(
+        cause instanceof ApiError && cause.status === 403
+          ? "Seu perfil não possui acesso às despesas."
+          : getApiErrorMessage(cause, "Não foi possível lançar a despesa."),
+      );
     } finally {
       setSubmitting(false);
       setLoading(false);

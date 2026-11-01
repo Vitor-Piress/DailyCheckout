@@ -8,7 +8,38 @@ import type {
   PeriodicReport,
   ServiceRecord,
   ServiceType,
+  UserProfile,
 } from "./types";
+import { isUserRole } from "../auth/roles";
+
+export function getCurrentUserProfile(): Promise<UserProfile> {
+  return request<unknown>(import.meta.env.VITE_PROFILE_PATH?.trim() || "/me").then(
+    (profile): UserProfile => {
+      if (
+        typeof profile !== "object" ||
+        profile === null ||
+        !("role" in profile) ||
+        !isUserRole(profile.role)
+      ) {
+        throw new Error("A API não retornou uma role de aplicação válida.");
+      }
+      const profileRecord: Record<string, unknown> = profile;
+      if (
+        typeof profileRecord.id !== "string" ||
+        typeof profileRecord.authUserId !== "string" ||
+        typeof profileRecord.name !== "string"
+      ) {
+        throw new Error("A API não retornou um perfil de aplicação válido.");
+      }
+      return {
+        id: profileRecord.id,
+        authUserId: profileRecord.authUserId,
+        name: profileRecord.name,
+        role: profile.role,
+      };
+    },
+  );
+}
 
 function dateQuery(date: string): string {
   return `?date=${encodeURIComponent(date)}`;

@@ -4,10 +4,13 @@ import { Button } from "../../components/ui/Button";
 import { DailyManagement } from "./DailyManagement";
 import { ExpenseManagement } from "./ExpenseManagement";
 import { PeriodicManagement } from "./PeriodicManagement";
+import { useAuth } from "../../auth/authContext";
+import { canAccessExpenses, canAccessPeriodicReports } from "../../auth/roles";
 
 export function Management() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const { role } = useAuth();
 
   function refreshManagement() {
     if (refreshing) return;
@@ -30,8 +33,10 @@ export function Management() {
         </Button>
       </div>
       <DailyManagement refreshToken={refreshToken} />
-      <ExpenseManagement refreshToken={refreshToken} />
-      <PeriodicManagement refreshToken={refreshToken} />
+      {canAccessExpenses(role) && <ExpenseManagement refreshToken={refreshToken} />}
+      {canAccessPeriodicReports(role) && (
+        <PeriodicManagement refreshToken={refreshToken} />
+      )}
     </section>
   );
 }

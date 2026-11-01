@@ -1,5 +1,5 @@
 import { ClipboardList } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getDailyReport,
   listServiceRecords,
@@ -11,6 +11,7 @@ import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { Panel } from "../../components/ui/Panel";
 import { getApiErrorMessage } from "../../lib/errors";
+import { useAuth } from "../../auth/authContext";
 import {
   formatCurrency,
   getToday,
@@ -18,11 +19,31 @@ import {
 } from "../../lib/formatters";
 
 export function DailyManagement({ refreshToken }: { refreshToken: number }) {
+  const { role } = useAuth();
   const [date, setDate] = useState(getToday);
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const groupedRecords = useMemo(() => {
+    const groups = new Map<
+      string,
+      { name: string; records: ServiceRecord[] }
+    >();
+
+    for (const record of records) {
+      const groupKey = record.createdBy?.id ?? "unknown";
+      const groupName = record.createdBy?.name ?? "Autor não identificado";
+      const group = groups.get(groupKey);
+      if (group) {
+        group.records.push(record);
+      } else {
+        groups.set(groupKey, { name: groupName, records: [record] });
+      }
+    }
+
+    return [...groups.values()];
+  }, [records]);
 
   useEffect(() => {
     void Promise.all([listServiceRecords(date), getDailyReport(date)])
@@ -97,15 +118,55 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
             {records.length === 0 ? (
               <p className="m-0 text-[#617067]">Nenhum atendimento nesta data.</p>
             ) : (
-              <ul className="m-0 grid list-none gap-2.5 p-0">
-                {records.map((record) => (
-                  <li className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]" key={record.id}>
-                    <strong>{record.serviceName ?? "Serviço"}</strong>
-                    <span className="text-center text-xs text-[#617067]">{paymentMethodLabel(record.paymentMethod)}</span>
-                    <b className="justify-self-end whitespace-nowrap text-[#2f6840]">{formatCurrency(record.priceCents)}</b>
-                  </li>
-                ))}
-              </ul>
+              <div
+                className={
+                  role === "admin"
+                    ? "grid gap-4 sm:grid-cols-2 sm:items-start"
+                    : "grid gap-5"
+                }
+              >
+                {(role === "admin" ? groupedRecords : [{ name: "", records }]).map(
+                  (group) => (
+                    <div
+                      className={
+                        role === "admin"
+                          ? "grid gap-3 rounded-xl border border-[#dce5dd] bg-white p-3.5"
+                          : "grid gap-2.5"
+                      }
+                      key={group.name || "records"}
+                    >
+                      {role === "admin" && (
+                        <h3 className="m-0 border-b border-[#e8eee9] pb-2 text-sm font-bold text-[#34443a]">
+                          {group.name}
+                        </h3>
+                      )}
+                      <ul className="m-0 grid list-none gap-2.5 p-0">
+                        {group.records.map((record) => (
+                          <li
+                            className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
+                            key={record.id}
+                          >
+                            <span className="grid gap-0.5">
+                              <strong>{record.serviceName ?? "Serviço"}</strong>
+                              {role !== "admin" && record.createdBy && (
+                                <small className="text-xs text-[#617067]">
+                                  Lançado por: {record.createdBy.name}
+                                </small>
+                              )}
+                            </span>
+                            <span className="text-center text-xs text-[#617067]">
+                              {paymentMethodLabel(record.paymentMethod)}
+                            </span>
+                            <b className="justify-self-end whitespace-nowrap text-[#2f6840]">
+                              {formatCurrency(record.priceCents)}
+                            </b>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ),
+                )}
+              </div>
             )}
           </Panel>
         </>

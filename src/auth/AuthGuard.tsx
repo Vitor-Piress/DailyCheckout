@@ -3,10 +3,10 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { useAuth } from "./authContext";
 
 export function AuthGuard() {
-  const { loading, user } = useAuth();
+  const { loading, roleLoading, user } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || roleLoading) {
     return <EmptyState>Restaurando sua sessão...</EmptyState>;
   }
 
