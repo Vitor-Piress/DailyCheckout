@@ -1,9 +1,8 @@
-import { request } from "./client";
+import { ApiError, request } from "./client";
 import type {
   CreateExpenseInput,
   CreateServiceRecordInput,
   DailyReport,
-  DailySettlement,
   Expense,
   Period,
   PeriodicReport,
@@ -86,15 +85,20 @@ export function listExpensesByMonth(month: string): Promise<Expense[]> {
 }
 
 export function getDailyReport(date: string): Promise<DailyReport> {
-  return request<DailyReport>(`/reports/daily${dateQuery(date)}`);
+  return request<DailyReport>(`/reports/daily${dateQuery(date)}`).catch((cause) => {
+    if (cause instanceof ApiError) {
+      throw new ApiError(
+        `Relatório diário: ${cause.message}`,
+        cause.status,
+        cause.details,
+      );
+    }
+    throw cause;
+  });
 }
 
-export function getDailySettlement(date: string): Promise<DailySettlement> {
-  return request<DailySettlement>(`/settlements/daily${dateQuery(date)}`);
-}
-
-export function closeDailySettlement(date: string): Promise<DailySettlement> {
-  return request<DailySettlement>("/settlements/daily/close", {
+export function closeDailySettlement(date: string): Promise<void> {
+  return request<void>("/settlements/daily/close", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -3,14 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   closeDailySettlement,
   getDailyReport,
-  getDailySettlement,
   listServiceRecords,
+  listServiceTypes,
 } from "../../api/dailyCheckoutApi";
 import { ApiError } from "../../api/client";
 import type {
   DailyReport,
-  DailySettlement,
   ServiceRecord,
+  ServiceType,
 } from "../../api/types";
 import { ReportList } from "../../components/reports/ReportList";
 import { UserReportGroups } from "../../components/reports/UserReportGroups";
@@ -24,6 +24,7 @@ import {
   formatCurrency,
   formatIsoDate,
   getToday,
+  paymentOptions,
   paymentMethodLabel,
 } from "../../lib/formatters";
 
@@ -42,8 +43,8 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   const { role } = useAuth();
   const [date, setDate] = useState(getToday);
   const [records, setRecords] = useState<ServiceRecord[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [report, setReport] = useState<DailyReport | null>(null);
-  const [settlement, setSettlement] = useState<DailySettlement | null>(null);
   const [settlementSubmitting, setSettlementSubmitting] = useState(false);
   const [settlementMessage, setSettlementMessage] = useState<string | null>(
     null,
@@ -71,30 +72,15 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   }, [records]);
 
   useEffect(() => {
-    const reportRequest = Promise.all([
+    void Promise.all([
       listServiceRecords(date),
       getDailyReport(date),
-    ]);
-    const settlementRequest =
-      role === "admin"
-        ? getDailySettlement(date).catch((cause: unknown) => {
-            if (cause instanceof ApiError && cause.status === 404) {
-              return null;
-            }
-            if (cause instanceof ApiError && cause.status === 403) {
-              setSettlementMessage(
-                "Seu perfil não possui permissão para consultar o fechamento.",
-              );
-              return null;
-            }
-            throw cause;
-          })
-        : Promise.resolve(null);
-    void Promise.all([reportRequest, settlementRequest])
-      .then(([[serviceRecords, dailyReport], dailySettlement]) => {
+      listServiceTypes(),
+    ])
+      .then(([serviceRecords, dailyReport, availableServices]) => {
         setRecords(serviceRecords);
         setReport(dailyReport);
-        setSettlement(dailySettlement);
+        setServiceTypes(availableServices);
       })
       .catch((cause: unknown) => {
         console.error(
@@ -122,7 +108,7 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
     setError(null);
     setReport(null);
     setRecords([]);
-    setSettlement(null);
+    setServiceTypes([]);
     setSettlementMessage(null);
     setDate(value);
   }
@@ -134,25 +120,72 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   }
 
   const calculatedSettlement = report?.settlement;
-  const displayedSettlement: DailySettlement | null =
-    settlement ??
-    (calculatedSettlement
-      ? {
-          date,
-          status: "open",
-          closedAt: null,
-          admin: {
-            ownServicesCents: calculatedSettlement.adminOwnServicesCents,
-            dailyOperatorsShareCents:
-              calculatedSettlement.adminDailyOperatorsShareCents,
-            totalDueCents: calculatedSettlement.adminTotalDueCents,
-          },
-          dailyOperators: calculatedSettlement.dailyOperators,
-          grossServicesCents: calculatedSettlement.grossServicesCents,
-          dailyOperatorsTotalDueCents:
-            calculatedSettlement.dailyOperatorsTotalDueCents,
-        }
-      : null);
+  const displayedSettlement = calculatedSettlement
+    ? {
+        status: calculatedSettlement.persistenceStatus === "closed"
+          ? ("closed" as const)
+          : ("open" as const),
+        closedAt: calculatedSettlement.closedSettlement?.closedAt ?? null,
+        closedBy: calculatedSettlement.closedSettlement?.closedBy ?? null,
+        admin: calculatedSettlement.persistenceStatus === "closed"
+          ? calculatedSettlement.closedSettlement?.admin ?? calculatedSettlement.admin
+          : calculatedSettlement.admin,
+        dailyOperators: calculatedSettlement.persistenceStatus === "closed"
+          ? calculatedSettlement.closedSettlement?.dailyOperators ?? calculatedSettlement.dailyOperators
+          : calculatedSettlement.dailyOperators,
+        grossServicesCents: calculatedSettlement.persistenceStatus === "closed"
+          ? calculatedSettlement.closedSettlement?.grossServicesCents ?? calculatedSettlement.grossServicesCents
+          : calculatedSettlement.grossServicesCents,
+        dailyOperatorsTotalDueCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? calculatedSettlement.closedSettlement?.dailyOperatorsTotalDueCents ??
+              calculatedSettlement.dailyOperatorsTotalDueCents
+            : calculatedSettlement.dailyOperatorsTotalDueCents,
+        unidentifiedServicesCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? calculatedSettlement.closedSettlement?.unidentifiedServicesCents ??
+              calculatedSettlement.unidentifiedServicesCents
+            : calculatedSettlement.unidentifiedServicesCents,
+        unidentifiedServiceCount:
+        calculatedSettlement.persistenceStatus === "closed"
+          ? calculatedSettlement.closedSettlement?.unidentifiedServiceCount ??
+            calculatedSettlement.unidentifiedServiceCount
+          : calculatedSettlement.unidentifiedServiceCount,
+      current: calculatedSettlement,
+    }
+    : null;
+  const serviceSummaries = [
+    ...serviceTypes.map((service) => {
+      const summary = report?.services.find(
+        (item) => item.serviceTypeId === service.id,
+      );
+      return {
+        label: service.name,
+        detail: `${summary?.quantity ?? 0} atendimento(s)`,
+        value: formatCurrency(summary?.totalCents ?? 0),
+      };
+    }),
+    ...(report?.services ?? [])
+      .filter(
+        (summary) =>
+          !serviceTypes.some((service) => service.id === summary.serviceTypeId),
+      )
+      .map((summary) => ({
+        label: summary.serviceName,
+        detail: `${summary.quantity} atendimento(s)`,
+        value: formatCurrency(summary.totalCents),
+      })),
+  ];
+  const paymentSummaries = paymentOptions.map((option) => {
+    const summary = report?.paymentMethods.find(
+      (item) => item.paymentMethod === option.value,
+    );
+    return {
+      label: option.label,
+      detail: `${summary?.quantity ?? 0} pagamento(s)`,
+      value: formatCurrency(summary?.totalCents ?? 0),
+    };
+  });
 
   async function handleCloseSettlement() {
     if (role !== "admin" || settlementSubmitting) {
@@ -171,14 +204,16 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
     setSettlementSubmitting(true);
     setSettlementMessage(null);
     try {
-      const closedSettlement = await closeDailySettlement(date);
-      setSettlement(closedSettlement);
+      await closeDailySettlement(date);
+      setReport(await getDailyReport(date));
       setSettlementMessage("Caixa fechado com sucesso.");
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.status === 409) {
         try {
-          setSettlement(await getDailySettlement(date));
-          setSettlementMessage("O caixa deste dia já foi fechado.");
+          setReport(await getDailyReport(date));
+          setSettlementMessage(
+            "Este caixa já foi fechado. Os dados foram atualizados.",
+          );
         } catch (refreshCause: unknown) {
           setSettlementMessage(
             getApiErrorMessage(
@@ -257,21 +292,13 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <ReportList
-              emptyMessage="Nenhum serviço registrado nesta data."
-              items={report.services.map((service) => ({
-                label: service.serviceName,
-                detail: `${service.quantity} atendimento(s)`,
-                value: formatCurrency(service.totalCents),
-              }))}
+              emptyMessage="Nenhum serviço cadastrado."
+              items={serviceSummaries}
               title="Resumo por serviço"
             />
             <ReportList
-              emptyMessage="Nenhum pagamento registrado nesta data."
-              items={report.paymentMethods.map((payment) => ({
-                label: paymentMethodLabel(payment.paymentMethod),
-                detail: `${payment.quantity} pagamento(s)`,
-                value: formatCurrency(payment.totalCents),
-              }))}
+              emptyMessage="Nenhuma forma de pagamento cadastrada."
+              items={paymentSummaries}
               title="Resumo por pagamento"
             />
           </div>
@@ -335,9 +362,50 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                     displayedSettlement.closedAt && (
                       <p className="mt-4 mb-0 text-sm text-[#617067]">
                         Fechado em{" "}
-                        {formatDateTime(displayedSettlement.closedAt)}.
+                        {formatDateTime(displayedSettlement.closedAt)}
+                        {displayedSettlement.closedBy
+                          ? ` por ${displayedSettlement.closedBy.userName}`
+                          : ""}
+                        .
                       </p>
                     )}
+                  {displayedSettlement.unidentifiedServiceCount > 0 && (
+                    <div className="mt-4 rounded-xl border border-[#ead9a6] bg-[#fff9e8] p-3 text-sm text-[#805d12]">
+                      <strong>Atendimentos sem autor identificado</strong>
+                      <p className="m-0 mt-1">
+                        {displayedSettlement.unidentifiedServiceCount}{" "}
+                        {displayedSettlement.unidentifiedServiceCount === 1
+                          ? "atendimento"
+                          : "atendimentos"}{" "}
+                        —{" "}
+                        {formatCurrency(
+                          displayedSettlement.unidentifiedServicesCents,
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {displayedSettlement.current?.hasDifferenceFromCurrentCalculation && (
+                    <div className="mt-4 rounded-xl border border-[#e7b0a7] bg-[#fff1ef] p-3 text-sm text-[#8b3d32]">
+                      <strong>
+                        Atenção: os atendimentos atuais são diferentes do
+                        fechamento registrado.
+                      </strong>
+                      <p className="m-0 mt-1">
+                        O snapshot histórico continua sendo o valor oficial do
+                        fechamento. Diferença atual para o admin:{" "}
+                        {formatCurrency(
+                          displayedSettlement.current.differences
+                            ?.adminTotalDueCents ?? 0,
+                        )}
+                        ; operadores:{" "}
+                        {formatCurrency(
+                          displayedSettlement.current.differences
+                            ?.dailyOperatorsTotalDueCents ?? 0,
+                        )}
+                        .
+                      </p>
+                    </div>
+                  )}
                   {displayedSettlement.dailyOperators.length > 0 && (
                     <div className="mt-5 grid gap-3">
                       <h3 className="m-0 text-sm font-bold text-[#34443a]">

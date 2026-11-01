@@ -4,8 +4,9 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import { Button } from "../ui/Button";
 import { Navigation } from "./Navigation";
-import logo from "../../../public/Original reconstruction — 32px favicon.svg";
 import { useMotionPreference } from "../../ui/motion";
+
+const logo = "/Original reconstruction — 32px favicon.svg";
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { signOut, user } = useAuth();
@@ -16,8 +17,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between gap-4 bg-[#17211b] px-5 py-4 text-[#f5f7f4] sm:px-8 sm:py-5">
         <div className="flex items-center gap-2.5 text-[1.05rem] font-bold tracking-tight">
-          <div className="flex items-center justify-center h-8 w-8 place-items-center border-dashed border border-[#b6d7bd] rounded-full bg-transparent text-[#17211b]">
-            <img src={logo} alt="icon" className="h-8 w-8" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-[#b6d7bd] bg-transparent">
+            <img
+              src={logo}
+              alt="Logo da barbearia"
+              className="h-7 w-7 object-contain"
+              height="28"
+              width="28"
+            />
           </div>
           <span>Bem-vindo, {user?.name ?? user?.email ?? "usuário"}</span>
         </div>

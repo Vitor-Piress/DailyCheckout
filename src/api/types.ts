@@ -90,29 +90,68 @@ export type SettlementOperator = {
   serviceCount: number;
 };
 
-export type DailySettlementReport = {
+export type SettlementAdminSummary = {
+  ownServicesCents: number;
+  dailyOperatorsShareCents: number;
+  totalDueCents: number;
+};
+
+export type SettlementDifferences = {
+  adminTotalDueCents: number;
+  dailyOperatorsTotalDueCents: number;
+};
+
+export type ClosedSettlement = {
+  settlementId: string;
+  status: "closed";
+  closedAt: string | null;
+  closedBy: { userId: string; userName: string } | null;
+  admin: SettlementAdminSummary;
+  dailyOperators: SettlementOperator[];
+  dailyOperatorsTotalDueCents: number;
+  grossServicesCents: number;
+  unidentifiedServicesCents: number;
+  unidentifiedServiceCount: number;
+};
+
+export type DailyReportSettlement = {
+  calculationStatus: "open" | "calculated";
+  persistenceStatus: "not_closed" | "closed";
+  admin: SettlementAdminSummary;
+  dailyOperators: SettlementOperator[];
+  grossServicesCents: number;
+  dailyOperatorsTotalDueCents: number;
+  adminTotalDueCents: number;
+  unidentifiedServicesCents: number;
+  unidentifiedServiceCount: number;
+  closedSettlement: ClosedSettlement | null;
+  hasDifferenceFromCurrentCalculation: boolean;
+  differences: SettlementDifferences | null;
+};
+
+export type SettlementDaySummary = {
+  date: string;
+  status: "open" | "closed";
+  adminTotalDueCents: number;
+  dailyOperatorsTotalDueCents: number;
+};
+
+export type PeriodicSettlement = {
+  periodStartDate: string;
+  periodEndDate: string;
+  calculationMode: "daily_snapshots_and_open_days";
   adminOwnServicesCents: number;
+  dailyOperatorsGrossServicesCents: number;
   dailyOperatorsShareCents: number;
   adminDailyOperatorsShareCents: number;
   adminTotalDueCents: number;
   dailyOperatorsTotalDueCents: number;
-  grossServicesCents: number;
+  unidentifiedServicesCents: number;
+  unidentifiedServiceCount: number;
   dailyOperators: SettlementOperator[];
-  settlementStatus: "open";
-};
-
-export type DailySettlement = {
-  date: string;
-  status: "open" | "closed";
-  closedAt: string | null;
-  admin: {
-    ownServicesCents: number;
-    dailyOperatorsShareCents: number;
-    totalDueCents: number;
-  };
-  dailyOperators: SettlementOperator[];
-  grossServicesCents: number;
-  dailyOperatorsTotalDueCents: number;
+  days: SettlementDaySummary[];
+  closedDaysCount: number;
+  openDaysCount: number;
 };
 
 export type UserServiceSummary = {
@@ -138,7 +177,7 @@ export type DailyReport = {
   serviceCount: number;
   grossRevenueCents: number;
   users: UserReportSummary[];
-  settlement: DailySettlementReport | null;
+  settlement: DailyReportSettlement | null;
 };
 
 export type PeriodicReport = {
@@ -152,4 +191,5 @@ export type PeriodicReport = {
   netRevenueCents: number;
   expensesByPaymentMethod: PaymentSummary[];
   users: UserReportSummary[];
+  settlement: PeriodicSettlement | null;
 };

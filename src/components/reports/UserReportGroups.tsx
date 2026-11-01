@@ -1,4 +1,5 @@
 import type { UserReportSummary } from "../../api/types";
+import { Panel } from "../ui/Panel";
 import { formatCurrency } from "../../lib/formatters";
 
 function roleLabel(role: UserReportSummary["role"]): string {
@@ -17,8 +18,13 @@ export function UserReportGroups({
   users: UserReportSummary[];
 }) {
   return (
-    <section className="grid gap-3">
-      <h2 className="m-0 text-base">Atendimentos por usuário</h2>
+    <Panel className="grid gap-4">
+      <div>
+        <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+          Distribuição dos atendimentos
+        </p>
+        <h2 className="m-0 text-base">Atendimentos por usuário</h2>
+      </div>
       {users.length === 0 ? (
         <p className="m-0 text-[#617067]">
           Nenhum atendimento encontrado para o período selecionado.
@@ -87,6 +93,6 @@ export function UserReportGroups({
           ))}
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
