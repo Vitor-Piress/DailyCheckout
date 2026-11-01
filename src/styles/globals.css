@@ -148,3 +148,168 @@ a {
     animation-iteration-count: 1 !important;
   }
 }
+
+@page {
+  size: A4 portrait;
+  margin: 14mm 12mm;
+}
+
+.periodic-print-only {
+  display: none;
+}
+
+@media print {
+  body {
+    min-width: 0;
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .periodic-screen-area {
+    display: none !important;
+  }
+
+  .periodic-print-only,
+  .periodic-print-only * {
+    display: revert;
+    visibility: visible !important;
+  }
+
+  .periodic-print-only {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    color: #17211b;
+    background: #fff;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.35;
+  }
+
+  .print-report-header {
+    border-bottom: 2px solid #2f6840;
+    margin-bottom: 14pt;
+    padding-bottom: 8pt;
+  }
+
+  .print-report-header h1 {
+    margin: 0 0 3pt;
+    font-size: 20pt;
+  }
+
+  .print-report-header p,
+  .print-section p {
+    margin: 3pt 0 0;
+    color: #4b5a50;
+  }
+
+  .print-eyebrow {
+    margin: 0 0 3pt !important;
+    color: #2f6840 !important;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .print-section {
+    margin-bottom: 14pt;
+    break-inside: auto;
+  }
+
+  .print-section h2 {
+    margin: 0 0 7pt;
+    border-bottom: 1px solid #c8d6ca;
+    padding-bottom: 4pt;
+    color: #23372a;
+    font-size: 13pt;
+  }
+
+  .print-section h3 {
+    margin: 11pt 0 5pt;
+    color: #34443a;
+    font-size: 10.5pt;
+  }
+
+  .print-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6pt;
+    margin-bottom: 7pt;
+  }
+
+  .print-metrics > div {
+    min-height: 43pt;
+    border: 1px solid #c8d6ca;
+    border-radius: 4pt;
+    padding: 6pt 7pt;
+  }
+
+  .print-metrics span,
+  .print-metrics strong {
+    display: block;
+  }
+
+  .print-metrics span {
+    color: #4b5a50;
+    font-size: 8pt;
+  }
+
+  .print-metrics strong {
+    margin-top: 3pt;
+    color: #2f6840;
+    font-size: 12pt;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 5pt;
+    table-layout: auto;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #c8d6ca;
+    padding: 5pt 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .print-table th {
+    background: #edf4ee;
+    color: #23372a;
+    font-size: 8pt;
+    font-weight: 700;
+  }
+
+  .print-table td {
+    font-size: 8.5pt;
+  }
+
+  .print-warning {
+    border-left: 3px solid #c18b20;
+    background: #fff9e8;
+    padding: 6pt 8pt;
+  }
+
+  .print-report-footer {
+    border-top: 1px solid #c8d6ca;
+    padding-top: 6pt;
+    color: #617067;
+    font-size: 8pt;
+    text-align: right;
+  }
+
+  .print-table tr,
+  .print-metrics > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
