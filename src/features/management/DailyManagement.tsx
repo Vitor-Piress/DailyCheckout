@@ -1,4 +1,4 @@
-import { ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   getDailyReport,
@@ -58,26 +58,59 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       .finally(() => setLoading(false));
   }, [date, refreshToken]);
 
+  function changeDate(value: string) {
+    if (!value) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setReport(null);
+    setRecords([]);
+    setDate(value);
+  }
+
+  function navigateDate(direction: -1 | 1) {
+    const [year, month, day] = date.split("-").map(Number);
+    const nextDate = new Date(Date.UTC(year, month - 1, day + direction));
+    changeDate(nextDate.toISOString().slice(0, 10));
+  }
+
   return (
     <div className="grid gap-4">
       <div className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-white p-4">
         <label className="text-sm font-bold text-[#34443a]" htmlFor="report-date">
           Data do acompanhamento
         </label>
-        <input
-          className="min-h-11 rounded-[0.55rem] border border-[#c8d6ca] px-3 py-2 text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
-          id="report-date"
-          max={getToday()}
-          onChange={(event) => {
-            setLoading(true);
-            setError(null);
-            setReport(null);
-            setRecords([]);
-            setDate(event.target.value);
-          }}
-          type="date"
-          value={date}
-        />
+        <div className="flex min-w-0 items-center gap-1.5">
+          <button
+            aria-label="Dia anterior"
+            className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-[0.55rem] border border-[#c8d6ca] bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] focus-visible:outline-2 focus-visible:outline-[#2f6840] focus-visible:outline-offset-2"
+            onClick={() => navigateDate(-1)}
+            title="Dia anterior"
+            type="button"
+          >
+            <ChevronLeft aria-hidden="true" size={18} />
+          </button>
+          <input
+            className="h-11 min-w-0 flex-1 rounded-[0.55rem] border border-[#c8d6ca] px-3 py-2 text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+            id="report-date"
+            max={getToday()}
+            onChange={(event) => changeDate(event.target.value)}
+            type="date"
+            value={date}
+          />
+          <button
+            aria-label="Próximo dia"
+            className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-[0.55rem] border border-[#c8d6ca] bg-[#f5f7f4] px-3 text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea] focus-visible:outline-2 focus-visible:outline-[#2f6840] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={date >= getToday()}
+            onClick={() => navigateDate(1)}
+            title="Próximo dia"
+            type="button"
+          >
+            <ChevronRight aria-hidden="true" size={18} />
+          </button>
+        </div>
       </div>
       {loading && <LoadingMessage>Carregando dados do dia...</LoadingMessage>}
       {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}

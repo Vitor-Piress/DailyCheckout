@@ -9,10 +9,10 @@ export const paymentOptions: Array<{ value: PaymentMethod; label: string }> = [
 ];
 
 export const periodOptions = [
-  { value: "month", label: "Mês" },
-  { value: "quarter", label: "Trimestre" },
-  { value: "semester", label: "Semestre" },
-  { value: "year", label: "Ano" },
+  { value: "month", label: "Mensal" },
+  { value: "quarter", label: "Trimestral" },
+  { value: "semester", label: "Semestral" },
+  { value: "year", label: "Anual" },
 ] as const;
 
 export const monthOptions = [
