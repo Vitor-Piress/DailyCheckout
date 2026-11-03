@@ -12,32 +12,18 @@ import type {
 import { useAuth } from "../../auth/authContext";
 import { IconButton } from "../../components/ui/IconButton";
 import { Button } from "../../components/ui/Button";
+import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { Panel } from "../../components/ui/Panel";
 import { getApiErrorMessage } from "../../lib/errors";
-import {
-  formatCurrency,
-  parseAtmCurrencyInput,
-  paymentMethodLabel,
-} from "../../lib/formatters";
+import { formatCurrency, paymentMethodLabel } from "../../lib/formatters";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ServiceBadge } from "./ServiceBadge";
 import { ServiceSelector } from "./ServiceSelector";
 
 const MIN_TIP_CENTS = 1;
 const MAX_TIP_CENTS = 50_000;
-
-function ensureCaretAtEnd(input: HTMLInputElement) {
-  if (input.selectionStart === input.selectionEnd) {
-    const length = input.value.length;
-    try {
-      input.setSelectionRange(length, length);
-    } catch {
-      // Ignore unsupported selection range
-    }
-  }
-}
 
 export function DailyOperation() {
   const { role } = useAuth();
@@ -104,11 +90,7 @@ export function DailyOperation() {
     }
     setIncludeTip(true);
     window.requestAnimationFrame(() => {
-      const input = tipInputRef.current;
-      if (input) {
-        input.focus();
-        ensureCaretAtEnd(input);
-      }
+      tipInputRef.current?.focus();
     });
   }
 
@@ -294,38 +276,25 @@ export function DailyOperation() {
                   <div className="motion-content grid gap-3.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
                     <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
                       Valor da gorjeta
-                      <input
+                      <CurrencyInput
                         aria-invalid={
                           tipExceedsMax || (tipTouched && tipBelowMin)
                         }
-                        autoComplete="off"
                         className={`min-h-12 w-full rounded-[0.6rem] border bg-white px-3.5 py-2.5 text-lg font-bold tracking-tight text-[#23372a] focus-visible:outline-2 ${
                           tipExceedsMax || (tipTouched && tipBelowMin)
                             ? "border-[#a83e3e] focus-visible:outline-[#a83e3e]"
                             : "border-[#c8d6ca] focus-visible:outline-[#2f6840]"
                         }`}
-                        inputMode="numeric"
-                        onChange={(event) => {
-                          setTipCents(
-                            parseAtmCurrencyInput(event.target.value),
-                          );
+                        maxDigits={7}
+                        onChangeCents={(nextCents) => {
+                          setTipCents(nextCents);
                           setTipTouched(true);
                           if (submitError) {
                             setSubmitError(null);
                           }
                         }}
-                        onClick={(event) =>
-                          ensureCaretAtEnd(event.currentTarget)
-                        }
-                        onFocus={(event) =>
-                          ensureCaretAtEnd(event.currentTarget)
-                        }
-                        onKeyUp={(event) =>
-                          ensureCaretAtEnd(event.currentTarget)
-                        }
                         ref={tipInputRef}
-                        type="text"
-                        value={formatCurrency(tipCents)}
+                        valueCents={tipCents}
                       />
                       {tipExceedsMax ? (
                         <span

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { createExpense, listExpensesByMonth } from "../../api/dailyCheckoutApi";
 import type { Expense, ExpensePaymentMethod } from "../../api/types";
 import { Button } from "../../components/ui/Button";
+import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { getApiErrorMessage } from "../../lib/errors";
@@ -49,7 +50,7 @@ export function ExpenseManagement({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amountCents, setAmountCents] = useState(0);
   const [category, setCategory] = useState("");
   const [paymentMethod, setPaymentMethod] =
     useState<ExpensePaymentMethod>("cash");
@@ -116,7 +117,6 @@ export function ExpenseManagement({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const amountCents = Math.round(Number(amount.replace(",", ".")) * 100);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
       return setError("Informe a data de vencimento / pagamento da despesa.");
     }
@@ -130,7 +130,7 @@ export function ExpenseManagement({
     try {
       await createExpense({
         description: description.trim(),
-        amountCents,
+        amountCents: Math.trunc(amountCents),
         ...(category.trim() ? { category: category.trim() } : {}),
         paymentMethod,
         dueDate,
@@ -138,7 +138,7 @@ export function ExpenseManagement({
       });
       const dueMonth = dueDate.slice(0, 7);
       setDescription("");
-      setAmount("");
+      setAmountCents(0);
       setCategory("");
       setNotes("");
       setSuccess(
@@ -363,17 +363,22 @@ export function ExpenseManagement({
             />
           </label>
           <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
-            Valor (R$)
-            <input
-              className={fieldClass}
-              min="0.01"
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0,00"
+            Valor
+            <CurrencyInput
+              className={`${fieldClass} font-bold tracking-tight`}
+              maxDigits={9}
+              onChangeCents={(nextCents) => {
+                setAmountCents(nextCents);
+                if (error) {
+                  setError(null);
+                }
+              }}
               required
-              step="0.01"
-              type="number"
-              value={amount}
+              valueCents={amountCents}
             />
+            <span className="text-xs font-normal text-[#617067]">
+              Digite apenas números (preenchimento automático em centavos).
+            </span>
           </label>
           <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
             Categoria (opcional)
