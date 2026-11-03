@@ -7,6 +7,14 @@ export type PaymentMethod =
   | "debit_card"
   | "other";
 
+export type ExpensePaymentMethod =
+  | "cash"
+  | "pix"
+  | "credit_card"
+  | "debit_card"
+  | "boleto"
+  | "other";
+
 export type Period = "week" | "month" | "quarter" | "semester" | "year";
 
 export type UserProfile = {
@@ -33,8 +41,10 @@ export type CreateServiceRecordInput = {
 export type ServiceRecord = {
   id: string;
   serviceTypeId: string;
-  serviceName?: string;
+  serviceName: string;
   priceCents: number;
+  operatorShareCents: number;
+  adminShareCents: number;
   paymentMethod: PaymentMethod;
   occurredAt: string;
   notes?: string | null;
@@ -52,8 +62,8 @@ export type CreateExpenseInput = {
   description: string;
   amountCents: number;
   category?: string;
-  paymentMethod: PaymentMethod;
-  occurredAt?: string;
+  paymentMethod: ExpensePaymentMethod;
+  dueDate: string;
   notes?: string;
 };
 
@@ -61,10 +71,10 @@ export type Expense = {
   id: string;
   description: string;
   amountCents: number;
-  category?: string | null;
-  paymentMethod: PaymentMethod;
-  occurredAt: string;
-  notes?: string | null;
+  category: string | null;
+  paymentMethod: ExpensePaymentMethod;
+  dueDate: string;
+  notes: string | null;
   createdAt: string;
 };
 
@@ -77,6 +87,12 @@ export type ServiceSummary = {
 
 export type PaymentSummary = {
   paymentMethod: PaymentMethod;
+  quantity: number;
+  totalCents: number;
+};
+
+export type ExpensePaymentSummary = {
+  paymentMethod: ExpensePaymentMethod;
   quantity: number;
   totalCents: number;
 };
@@ -154,11 +170,28 @@ export type PeriodicSettlement = {
   openDaysCount: number;
 };
 
+export type OperatorDailyShare = {
+  userId: string;
+  userName: string;
+  serviceCount: number;
+  grossServicesCents: number;
+  operatorShareCents: number;
+  adminShareCents: number;
+  sharePercentage: 50;
+};
+
 export type UserServiceSummary = {
   serviceTypeId: string;
   serviceName: string;
   quantity: number;
   totalCents: number;
+  operatorShareCents?: number;
+  adminShareCents?: number;
+};
+
+export type DailyUserServiceSummary = UserServiceSummary & {
+  operatorShareCents: number;
+  adminShareCents: number;
 };
 
 export type UserReportSummary = {
@@ -167,7 +200,15 @@ export type UserReportSummary = {
   role: UserRole | null;
   serviceCount: number;
   grossRevenueCents: number;
+  operatorShareCents?: number;
+  adminShareCents?: number;
   services: UserServiceSummary[];
+};
+
+export type DailyUserReportSummary = Omit<UserReportSummary, "services"> & {
+  operatorShareCents: number;
+  adminShareCents: number;
+  services: DailyUserServiceSummary[];
 };
 
 export type DailyReport = {
@@ -176,8 +217,27 @@ export type DailyReport = {
   paymentMethods: PaymentSummary[];
   serviceCount: number;
   grossRevenueCents: number;
-  users: UserReportSummary[];
+  operatorShare: OperatorDailyShare | null;
+  users: DailyUserReportSummary[];
   settlement: DailyReportSettlement | null;
+};
+
+export type FlexibleOperatorSummary = {
+  userId: string;
+  userName: string;
+  serviceCount: number;
+  grossServicesCents: number;
+  expenseCents: number;
+  adminShareCents: number;
+};
+
+export type FlexibleOperatorsExpense = {
+  totalCents: number;
+  grossServicesCents: number;
+  adminShareCents: number;
+  serviceCount: number;
+  isFlexible: boolean;
+  operators: FlexibleOperatorSummary[];
 };
 
 export type PeriodicReport = {
@@ -188,8 +248,11 @@ export type PeriodicReport = {
   grossRevenueCents: number;
   expenseCount: number;
   expensesCents: number;
+  dailyOperatorsExpenseCents: number;
+  dailyOperatorsExpense: FlexibleOperatorsExpense;
+  totalExpensesCents: number;
   netRevenueCents: number;
-  expensesByPaymentMethod: PaymentSummary[];
+  expensesByPaymentMethod: ExpensePaymentSummary[];
   users: UserReportSummary[];
   settlement: PeriodicSettlement | null;
 };

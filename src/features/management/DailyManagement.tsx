@@ -283,13 +283,67 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       )}
       {!loading && !error && report && (
         <>
-          <div className="motion-content grid gap-4 sm:grid-cols-2" key={date}>
-            <MetricCard label="Atendimentos" value={report.serviceCount} />
-            <MetricCard
-              label="Receita bruta"
-              value={formatCurrency(report.grossRevenueCents)}
-            />
-          </div>
+          {role === "daily_operator" && report.operatorShare ? (
+            <Panel className="motion-content grid gap-4" key={date}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+                    Meus ganhos no dia
+                  </p>
+                  <h2 className="m-0 text-base leading-tight">
+                    Divisão de atendimentos (
+                    {report.operatorShare.sharePercentage}% /{" "}
+                    {100 - report.operatorShare.sharePercentage}%)
+                  </h2>
+                </div>
+                <span className="rounded-full bg-[#e8f2ea] px-3 py-1 text-xs font-bold text-[#2f6840]">
+                  {report.operatorShare.serviceCount}{" "}
+                  {report.operatorShare.serviceCount === 1
+                    ? "atendimento"
+                    : "atendimentos"}
+                </span>
+              </div>
+              <div className="grid gap-3 rounded-[0.9rem] bg-[#2f6840] p-4 text-white sm:flex sm:items-center sm:justify-between">
+                <div className="grid gap-1">
+                  <span className="text-xs font-bold uppercase tracking-[0.06em] text-[#d7eadb]">
+                    Minha parte ({report.operatorShare.sharePercentage}%)
+                  </span>
+                  <strong className="text-2xl sm:text-3xl">
+                    {formatCurrency(report.operatorShare.operatorShareCents)}
+                  </strong>
+                </div>
+                <span className="w-fit rounded-lg bg-white/15 px-3 py-1.5 text-xs font-bold text-[#e8f2ea]">
+                  Ganho líquido do operador
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1 rounded-[0.8rem] border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
+                  <span className="text-xs font-bold text-[#617067]">
+                    Valor bruto dos serviços
+                  </span>
+                  <strong className="text-lg text-[#23372a]">
+                    {formatCurrency(report.operatorShare.grossServicesCents)}
+                  </strong>
+                </div>
+                <div className="grid gap-1 rounded-[0.8rem] border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
+                  <span className="text-xs font-bold text-[#617067]">
+                    Parte da barbearia / Admin (50%)
+                  </span>
+                  <strong className="text-lg text-[#34443a]">
+                    {formatCurrency(report.operatorShare.adminShareCents)}
+                  </strong>
+                </div>
+              </div>
+            </Panel>
+          ) : (
+            <div className="motion-content grid gap-4 sm:grid-cols-2" key={date}>
+              <MetricCard label="Atendimentos" value={report.serviceCount} />
+              <MetricCard
+                label="Receita bruta"
+                value={formatCurrency(report.grossRevenueCents)}
+              />
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <ReportList
               emptyMessage="Nenhum serviço cadastrado."
@@ -520,27 +574,58 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                       </h3>
                     )}
                     <ul className="m-0 grid list-none gap-2.5 p-0">
-                      {group.records.map((record) => (
-                        <li
-                          className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
-                          key={record.id}
-                        >
-                          <span className="grid gap-0.5">
-                            <strong>{record.serviceName ?? "Serviço"}</strong>
-                            {role !== "admin" && record.createdBy && (
+                      {group.records.map((record) =>
+                        role === "daily_operator" ? (
+                          <li
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
+                            key={record.id}
+                          >
+                            <span className="grid min-w-0 gap-0.5">
+                              <strong>{record.serviceName || "Serviço"}</strong>
                               <small className="text-xs text-[#617067]">
-                                Lançado por: {record.createdBy.name}
+                                {paymentMethodLabel(record.paymentMethod)}
+                                {record.createdBy
+                                  ? ` · Lançado por: ${record.createdBy.name}`
+                                  : ""}
                               </small>
-                            )}
-                          </span>
-                          <span className="text-center text-xs text-[#617067]">
-                            {paymentMethodLabel(record.paymentMethod)}
-                          </span>
-                          <b className="justify-self-end whitespace-nowrap text-[#2f6840]">
-                            {formatCurrency(record.priceCents)}
-                          </b>
-                        </li>
-                      ))}
+                            </span>
+                            <div className="grid shrink-0 justify-items-end gap-1 text-right">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                                Minha parte (50%):{" "}
+                                <strong className="text-sm">
+                                  {formatCurrency(record.operatorShareCents)}
+                                </strong>
+                              </span>
+                              <small className="text-xs text-[#617067]">
+                                Valor bruto: {formatCurrency(record.priceCents)}
+                              </small>
+                            </div>
+                          </li>
+                        ) : (
+                          <li
+                            className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
+                            key={record.id}
+                          >
+                            <span className="grid gap-0.5">
+                              <strong>{record.serviceName || "Serviço"}</strong>
+                              {record.operatorShareCents > 0 && (
+                                <small className="text-xs text-[#617067]">
+                                  50% op.:{" "}
+                                  {formatCurrency(record.operatorShareCents)} ·
+                                  50% admin:{" "}
+                                  {formatCurrency(record.adminShareCents)}
+                                </small>
+                              )}
+                            </span>
+                            <span className="text-center text-xs text-[#617067]">
+                              {paymentMethodLabel(record.paymentMethod)}
+                            </span>
+                            <b className="justify-self-end whitespace-nowrap text-[#2f6840]">
+                              {formatCurrency(record.priceCents)}
+                            </b>
+                          </li>
+                        ),
+                      )}
                     </ul>
                   </div>
                 ))}

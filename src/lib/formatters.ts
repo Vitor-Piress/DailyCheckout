@@ -1,10 +1,22 @@
-import type { PaymentMethod } from "../api/types";
+import type { ExpensePaymentMethod, PaymentMethod } from "../api/types";
 
 export const paymentOptions: Array<{ value: PaymentMethod; label: string }> = [
   { value: "cash", label: "Dinheiro" },
   { value: "pix", label: "Pix" },
   { value: "credit_card", label: "Cartão de crédito" },
   { value: "debit_card", label: "Cartão de débito" },
+  { value: "other", label: "Outro" },
+];
+
+export const expensePaymentOptions: Array<{
+  value: ExpensePaymentMethod;
+  label: string;
+}> = [
+  { value: "cash", label: "Dinheiro" },
+  { value: "pix", label: "Pix" },
+  { value: "credit_card", label: "Cartão de crédito" },
+  { value: "debit_card", label: "Cartão de débito" },
+  { value: "boleto", label: "Boleto" },
   { value: "other", label: "Outro" },
 ];
 
@@ -23,13 +35,15 @@ export function addDaysToIsoDate(date: string, days: number): string {
 }
 
 export function formatIsoDate(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
+  const [year, month, day] = date.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) {
+    return date;
+  }
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
+  }).format(new Date(year, month - 1, day, 12, 0, 0));
 }
 
 export const monthOptions = [
@@ -74,13 +88,11 @@ export function formatDate(date: string): string {
   }).format(new Date(date));
 }
 
-export function toExpenseDateTime(date: string): string {
-  return `${date}T12:00:00-03:00`;
-}
-
-export function paymentMethodLabel(paymentMethod: PaymentMethod): string {
+export function paymentMethodLabel(
+  paymentMethod: PaymentMethod | ExpensePaymentMethod,
+): string {
   return (
-    paymentOptions.find((option) => option.value === paymentMethod)?.label ??
-    paymentMethod
+    expensePaymentOptions.find((option) => option.value === paymentMethod)
+      ?.label ?? paymentMethod
   );
 }

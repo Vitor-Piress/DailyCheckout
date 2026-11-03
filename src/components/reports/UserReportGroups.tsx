@@ -59,6 +59,28 @@ export function UserReportGroups({
                     {formatCurrency(user.grossRevenueCents)}
                   </strong>
                 </div>
+                {user.role === "daily_operator" &&
+                  typeof user.operatorShareCents === "number" &&
+                  typeof user.adminShareCents === "number" && (
+                    <>
+                      <div className="min-w-0 rounded-lg bg-[#e8f2ea] p-3">
+                        <span className="block text-xs text-[#4a7957]">
+                          Operador (50%)
+                        </span>
+                        <strong className="block min-w-0 break-words text-base text-[#2f6840]">
+                          {formatCurrency(user.operatorShareCents)}
+                        </strong>
+                      </div>
+                      <div className="min-w-0 rounded-lg bg-[#f5f7f4] p-3">
+                        <span className="block text-xs text-[#617067]">
+                          Barbearia / Admin (50%)
+                        </span>
+                        <strong className="block min-w-0 break-words text-base text-[#34443a]">
+                          {formatCurrency(user.adminShareCents)}
+                        </strong>
+                      </div>
+                    </>
+                  )}
               </div>
               {user.services.length > 0 ? (
                 <ul className="m-0 grid list-none gap-2 border-t border-[#e8eee9] pt-3">
@@ -71,11 +93,15 @@ export function UserReportGroups({
                         <strong className="block break-words text-sm">
                           {service.serviceName}
                         </strong>
-                        <small className="text-xs text-[#617067]">
+                        <small className="block text-xs text-[#617067]">
                           {service.quantity}{" "}
                           {service.quantity === 1
                             ? "atendimento"
                             : "atendimentos"}
+                          {user.role === "daily_operator" &&
+                          typeof service.operatorShareCents === "number"
+                            ? ` · 50% op.: ${formatCurrency(service.operatorShareCents)}`
+                            : ""}
                         </small>
                       </span>
                       <b className="shrink-0 text-sm text-[#2f6840]">

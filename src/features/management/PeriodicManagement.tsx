@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ChevronUp,
   Printer,
+  RefreshCw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getPeriodicReport } from "../../api/dailyCheckoutApi";
@@ -57,11 +58,11 @@ function PeriodicPrintReport({
             <strong>{formatCurrency(report.grossRevenueCents)}</strong>
           </div>
           <div>
-            <span>Despesas</span>
-            <strong>{formatCurrency(report.expensesCents)}</strong>
+            <span>Total de despesas</span>
+            <strong>{formatCurrency(report.totalExpensesCents)}</strong>
           </div>
           <div>
-            <span>Resultado líquido</span>
+            <span>Lucro / Resultado líquido</span>
             <strong>{formatCurrency(report.netRevenueCents)}</strong>
           </div>
           <div>
@@ -69,6 +70,70 @@ function PeriodicPrintReport({
             <strong>{report.serviceCount}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="print-section">
+        <h2>Composição das despesas</h2>
+        <div className="print-metrics">
+          <div>
+            <span>Despesas lançadas (Contas/Fixas)</span>
+            <strong>{formatCurrency(report.expensesCents)}</strong>
+            <span>
+              {report.expenseCount}{" "}
+              {report.expenseCount === 1 ? "lançamento" : "lançamentos"}
+            </span>
+          </div>
+          <div>
+            <span>Comissão operadores (50% — variável)</span>
+            <strong>{formatCurrency(report.dailyOperatorsExpenseCents)}</strong>
+            <span>
+              {report.dailyOperatorsExpense.serviceCount}{" "}
+              {report.dailyOperatorsExpense.serviceCount === 1
+                ? "atendimento"
+                : "atendimentos"}
+            </span>
+          </div>
+          <div>
+            <span>Total de despesas</span>
+            <strong>{formatCurrency(report.totalExpensesCents)}</strong>
+          </div>
+          <div>
+            <span>Lucro / Resultado líquido</span>
+            <strong>{formatCurrency(report.netRevenueCents)}</strong>
+          </div>
+        </div>
+        <p className="print-warning">
+          Comissão de operadores (50%): valor flexível em atualização diária
+          conforme novos atendimentos são registrados até o fechamento do
+          período.
+        </p>
+        {report.dailyOperatorsExpense.operators.length > 0 && (
+          <>
+            <h3>Detalhamento da comissão por operador</h3>
+            <table className="print-table">
+              <thead>
+                <tr>
+                  <th>Operador</th>
+                  <th>Serviços</th>
+                  <th>Bruto gerado</th>
+                  <th>Comissão / Despesa (50%)</th>
+                  <th>Parte Admin (50%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.dailyOperatorsExpense.operators.map((operator) => (
+                  <tr key={operator.userId}>
+                    <td>{operator.userName}</td>
+                    <td>{operator.serviceCount}</td>
+                    <td>{formatCurrency(operator.grossServicesCents)}</td>
+                    <td>{formatCurrency(operator.expenseCents)}</td>
+                    <td>{formatCurrency(operator.adminShareCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </section>
 
       {report.settlement && (
@@ -643,15 +708,139 @@ export function PeriodicManagement({
               value={formatCurrency(report.grossRevenueCents)}
             />
             <MetricCard
-              label="Despesas"
-              value={formatCurrency(report.expensesCents)}
+              label="Total de despesas"
+              value={formatCurrency(report.totalExpensesCents)}
             />
             <MetricCard
-              label="Resultado líquido"
+              label="Lucro / Resultado líquido"
               value={formatCurrency(report.netRevenueCents)}
             />
             <MetricCard label="Atendimentos" value={report.serviceCount} />
           </div>
+          <Panel className="grid gap-4">
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+                Composição das despesas
+              </p>
+              <h2 className="m-0 text-base">
+                Despesas lançadas vs. comissão de operadores
+              </h2>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid content-start gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold uppercase tracking-[0.06em] text-[#617067]">
+                    Despesas lançadas (Contas/Fixas)
+                  </span>
+                  <span className="rounded-full border border-[#dce5dd] bg-white px-2.5 py-0.5 text-xs font-bold text-[#34443a]">
+                    {report.expenseCount}{" "}
+                    {report.expenseCount === 1 ? "lançamento" : "lançamentos"}
+                  </span>
+                </div>
+                <strong className="text-xl text-[#a83e3e] sm:text-2xl">
+                  {formatCurrency(report.expensesCents)}
+                </strong>
+                <p className="m-0 text-xs text-[#617067]">
+                  Contas, boletos, insumos e demais despesas manuais com
+                  vencimento neste período.
+                </p>
+              </div>
+              <div className="grid content-start gap-2 rounded-xl border border-[#ead9a6] bg-[#fffdf6] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold uppercase tracking-[0.06em] text-[#805d12]">
+                    Despesa variável — Comissão operadores (50%)
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-0.5 text-xs font-bold text-[#805d12]">
+                    <RefreshCw aria-hidden="true" size={12} />
+                    Valor flexível · Atualização diária
+                  </span>
+                </div>
+                <strong className="text-xl text-[#805d12] sm:text-2xl">
+                  {formatCurrency(report.dailyOperatorsExpenseCents)}
+                </strong>
+                <p className="m-0 text-xs text-[#617067]">
+                  {report.dailyOperatorsExpense.serviceCount}{" "}
+                  {report.dailyOperatorsExpense.serviceCount === 1
+                    ? "atendimento"
+                    : "atendimentos"}{" "}
+                  de operadores · Bruto gerado:{" "}
+                  {formatCurrency(
+                    report.dailyOperatorsExpense.grossServicesCents,
+                  )}
+                </p>
+                <p className="m-0 rounded-lg border border-[#ead9a6] bg-[#fff9e8] px-2.5 py-2 text-xs text-[#805d12]">
+                  Valor flexível em atualização diária conforme novos
+                  atendimentos são registrados pelos operadores até o fechamento
+                  do período.
+                </p>
+              </div>
+            </div>
+            {report.dailyOperatorsExpense.operators.length > 0 && (
+              <div className="grid gap-2.5 border-t border-[#e8eee9] pt-3">
+                <h3 className="m-0 text-sm font-bold text-[#34443a]">
+                  Comissão por operador (despesa variável)
+                </h3>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {report.dailyOperatorsExpense.operators.map((operator) => (
+                    <div
+                      className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5"
+                      key={operator.userId}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-[#23372a]">
+                          {operator.userName}
+                        </strong>
+                        <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-[#617067]">
+                          {operator.serviceCount}{" "}
+                          {operator.serviceCount === 1 ? "serviço" : "serviços"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#617067]">
+                        <span>
+                          Bruto gerado:{" "}
+                          <strong className="text-[#34443a]">
+                            {formatCurrency(operator.grossServicesCents)}
+                          </strong>
+                        </span>
+                        <span>
+                          Admin (50%):{" "}
+                          <strong className="text-[#2f6840]">
+                            {formatCurrency(operator.adminShareCents)}
+                          </strong>
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center justify-between gap-2 border-t border-[#e8eee9] pt-2 text-sm">
+                        <span className="font-bold text-[#34443a]">
+                          Comissão / Despesa (50%)
+                        </span>
+                        <b className="text-[#a83e3e]">
+                          {formatCurrency(operator.expenseCents)}
+                        </b>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="grid gap-2.5 border-t border-[#e8eee9] pt-3 sm:grid-cols-2">
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-[#f5f7f4] px-3.5 py-2.5 text-sm">
+                <span className="font-bold text-[#34443a]">
+                  Total de despesas
+                </span>
+                <b className="text-base text-[#a83e3e]">
+                  {formatCurrency(report.totalExpensesCents)}
+                </b>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-[#e8f2ea] px-3.5 py-2.5 text-sm">
+                <span className="font-bold text-[#245c35]">
+                  Lucro / Resultado líquido
+                </span>
+                <b className="text-base text-[#2f6840]">
+                  {formatCurrency(report.netRevenueCents)}
+                </b>
+              </div>
+            </div>
+          </Panel>
           {role === "admin" && report.settlement && (
             <Panel className="grid gap-4">
               <div>

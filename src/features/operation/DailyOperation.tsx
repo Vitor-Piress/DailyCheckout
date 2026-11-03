@@ -5,17 +5,20 @@ import {
   listServiceTypes,
 } from "../../api/dailyCheckoutApi";
 import type { PaymentMethod, ServiceType } from "../../api/types";
+import { useAuth } from "../../auth/authContext";
 import { IconButton } from "../../components/ui/IconButton";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { Panel } from "../../components/ui/Panel";
 import { getApiErrorMessage } from "../../lib/errors";
+import { formatCurrency } from "../../lib/formatters";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ServiceBadge } from "./ServiceBadge";
 import { ServiceSelector } from "./ServiceSelector";
 
 export function DailyOperation() {
+  const { role } = useAuth();
   const [services, setServices] = useState<ServiceType[]>([]);
   const [selectedService, setSelectedService] = useState<ServiceType | null>(
     null,
@@ -53,11 +56,16 @@ export function DailyOperation() {
     setError(null);
     setSuccess(null);
     try {
-      await createServiceRecord({
+      const createdRecord = await createServiceRecord({
         serviceTypeId: selectedService.id,
         paymentMethod,
       });
-      setSuccess(`${selectedService.name} registrado com sucesso.`);
+      const serviceTitle = createdRecord.serviceName || selectedService.name;
+      setSuccess(
+        role === "daily_operator"
+          ? `${serviceTitle} registrado com sucesso · Minha parte (50%): ${formatCurrency(createdRecord.operatorShareCents)} (Bruto: ${formatCurrency(createdRecord.priceCents)}).`
+          : `${serviceTitle} registrado com sucesso.`,
+      );
       setSelectedService(null);
       setPaymentMethod(null);
     } catch (cause: unknown) {
