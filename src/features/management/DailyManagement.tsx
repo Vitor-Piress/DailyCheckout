@@ -7,11 +7,7 @@ import {
   listServiceTypes,
 } from "../../api/dailyCheckoutApi";
 import { ApiError } from "../../api/client";
-import type {
-  DailyReport,
-  ServiceRecord,
-  ServiceType,
-} from "../../api/types";
+import type { DailyReport, ServiceRecord, ServiceType } from "../../api/types";
 import { ReportList } from "../../components/reports/ReportList";
 import { UserReportGroups } from "../../components/reports/UserReportGroups";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
@@ -122,37 +118,47 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   const calculatedSettlement = report?.settlement;
   const displayedSettlement = calculatedSettlement
     ? {
-        status: calculatedSettlement.persistenceStatus === "closed"
-          ? ("closed" as const)
-          : ("open" as const),
+        status:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? ("closed" as const)
+            : ("open" as const),
         closedAt: calculatedSettlement.closedSettlement?.closedAt ?? null,
         closedBy: calculatedSettlement.closedSettlement?.closedBy ?? null,
-        admin: calculatedSettlement.persistenceStatus === "closed"
-          ? calculatedSettlement.closedSettlement?.admin ?? calculatedSettlement.admin
-          : calculatedSettlement.admin,
-        dailyOperators: calculatedSettlement.persistenceStatus === "closed"
-          ? calculatedSettlement.closedSettlement?.dailyOperators ?? calculatedSettlement.dailyOperators
-          : calculatedSettlement.dailyOperators,
-        grossServicesCents: calculatedSettlement.persistenceStatus === "closed"
-          ? calculatedSettlement.closedSettlement?.grossServicesCents ?? calculatedSettlement.grossServicesCents
-          : calculatedSettlement.grossServicesCents,
+        admin:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement?.admin ??
+              calculatedSettlement.admin)
+            : calculatedSettlement.admin,
+        dailyOperators:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement?.dailyOperators ??
+              calculatedSettlement.dailyOperators)
+            : calculatedSettlement.dailyOperators,
+        grossServicesCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement?.grossServicesCents ??
+              calculatedSettlement.grossServicesCents)
+            : calculatedSettlement.grossServicesCents,
         dailyOperatorsTotalDueCents:
           calculatedSettlement.persistenceStatus === "closed"
-            ? calculatedSettlement.closedSettlement?.dailyOperatorsTotalDueCents ??
-              calculatedSettlement.dailyOperatorsTotalDueCents
+            ? (calculatedSettlement.closedSettlement
+                ?.dailyOperatorsTotalDueCents ??
+              calculatedSettlement.dailyOperatorsTotalDueCents)
             : calculatedSettlement.dailyOperatorsTotalDueCents,
         unidentifiedServicesCents:
           calculatedSettlement.persistenceStatus === "closed"
-            ? calculatedSettlement.closedSettlement?.unidentifiedServicesCents ??
-              calculatedSettlement.unidentifiedServicesCents
+            ? (calculatedSettlement.closedSettlement
+                ?.unidentifiedServicesCents ??
+              calculatedSettlement.unidentifiedServicesCents)
             : calculatedSettlement.unidentifiedServicesCents,
         unidentifiedServiceCount:
-        calculatedSettlement.persistenceStatus === "closed"
-          ? calculatedSettlement.closedSettlement?.unidentifiedServiceCount ??
-            calculatedSettlement.unidentifiedServiceCount
-          : calculatedSettlement.unidentifiedServiceCount,
-      current: calculatedSettlement,
-    }
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement
+                ?.unidentifiedServiceCount ??
+              calculatedSettlement.unidentifiedServiceCount)
+            : calculatedSettlement.unidentifiedServiceCount,
+        current: calculatedSettlement,
+      }
     : null;
   const serviceSummaries = [
     ...serviceTypes.map((service) => {
@@ -325,18 +331,13 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                     {formatCurrency(report.operatorShare.grossServicesCents)}
                   </strong>
                 </div>
-                <div className="grid gap-1 rounded-[0.8rem] border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
-                  <span className="text-xs font-bold text-[#617067]">
-                    Parte da barbearia / Admin (50%)
-                  </span>
-                  <strong className="text-lg text-[#34443a]">
-                    {formatCurrency(report.operatorShare.adminShareCents)}
-                  </strong>
-                </div>
               </div>
             </Panel>
           ) : (
-            <div className="motion-content grid gap-4 sm:grid-cols-2" key={date}>
+            <div
+              className="motion-content grid gap-4 sm:grid-cols-2"
+              key={date}
+            >
               <MetricCard label="Atendimentos" value={report.serviceCount} />
               <MetricCard
                 label="Receita bruta"
@@ -438,7 +439,8 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                       </p>
                     </div>
                   )}
-                  {displayedSettlement.current?.hasDifferenceFromCurrentCalculation && (
+                  {displayedSettlement.current
+                    ?.hasDifferenceFromCurrentCalculation && (
                     <div className="mt-4 rounded-xl border border-[#e7b0a7] bg-[#fff1ef] p-3 text-sm text-[#8b3d32]">
                       <strong>
                         Atenção: os atendimentos atuais são diferentes do
