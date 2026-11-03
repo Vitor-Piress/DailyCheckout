@@ -120,6 +120,18 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
             ? (calculatedSettlement.closedSettlement?.grossServicesCents ??
               calculatedSettlement.grossServicesCents)
             : calculatedSettlement.grossServicesCents,
+        tipsCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement?.tipsCents ??
+              calculatedSettlement.tipsCents ??
+              0)
+            : (calculatedSettlement.tipsCents ?? 0),
+        dailyOperatorsTipsCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement?.dailyOperatorsTipsCents ??
+              calculatedSettlement.dailyOperatorsTipsCents ??
+              0)
+            : (calculatedSettlement.dailyOperatorsTipsCents ?? 0),
         dailyOperatorsTotalDueCents:
           calculatedSettlement.persistenceStatus === "closed"
             ? (calculatedSettlement.closedSettlement
@@ -167,9 +179,16 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
     const summary = report?.paymentMethods.find(
       (item) => item.paymentMethod === option.value,
     );
+    const tipsCents = summary?.tipsCents ?? 0;
+    const servicesCents =
+      summary?.servicesCents ?? (summary?.totalCents ?? 0) - tipsCents;
+    const countLabel = `${summary?.quantity ?? 0} pagamento(s)`;
     return {
       label: option.label,
-      detail: `${summary?.quantity ?? 0} pagamento(s)`,
+      detail:
+        tipsCents > 0
+          ? `${countLabel} · Serviços: ${formatCurrency(servicesCents)} · Gorjetas: + ${formatCurrency(tipsCents)}`
+          : countLabel,
       value: formatCurrency(summary?.totalCents ?? 0),
     };
   });
@@ -293,7 +312,9 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               <div className="grid gap-3 rounded-[0.9rem] bg-[#2f6840] p-4 text-white sm:flex sm:items-center sm:justify-between">
                 <div className="grid gap-1">
                   <span className="text-xs font-bold uppercase tracking-[0.06em] text-[#d7eadb]">
-                    Minha parte ({report.operatorShare.sharePercentage}%)
+                    {(report.operatorShare.tipsCents ?? 0) > 0
+                      ? `Minha parte (${report.operatorShare.sharePercentage}% serviços + 100% gorjetas)`
+                      : `Minha parte (${report.operatorShare.sharePercentage}%)`}
                   </span>
                   <strong className="text-2xl sm:text-3xl">
                     {formatCurrency(report.operatorShare.operatorShareCents)}
@@ -303,7 +324,13 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                   Ganho líquido do operador
                 </span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                className={`grid gap-3 ${
+                  (report.operatorShare.tipsCents ?? 0) > 0
+                    ? "sm:grid-cols-3"
+                    : "sm:grid-cols-2"
+                }`}
+              >
                 <div className="grid gap-1 rounded-[0.8rem] border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
                   <span className="text-xs font-bold text-[#617067]">
                     Valor bruto dos serviços
@@ -312,6 +339,30 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                     {formatCurrency(report.operatorShare.grossServicesCents)}
                   </strong>
                 </div>
+                {(report.operatorShare.tipsCents ?? 0) > 0 && (
+                  <>
+                    <div className="grid gap-1 rounded-[0.8rem] border border-[#dce5dd] bg-[#e8f2ea] p-3.5">
+                      <span className="text-xs font-bold text-[#4a7957]">
+                        Gorjetas (100% operador)
+                      </span>
+                      <strong className="text-lg text-[#2f6840]">
+                        + {formatCurrency(report.operatorShare.tipsCents)}
+                      </strong>
+                    </div>
+                    <div className="grid gap-1 rounded-[0.8rem] border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
+                      <span className="text-xs font-bold text-[#617067]">
+                        Total bruto movimentado
+                      </span>
+                      <strong className="text-lg text-[#23372a]">
+                        {formatCurrency(
+                          report.operatorShare.grossRevenueCents ??
+                            report.operatorShare.grossServicesCents +
+                              report.operatorShare.tipsCents,
+                        )}
+                      </strong>
+                    </div>
+                  </>
+                )}
               </div>
             </Panel>
           ) : (
@@ -321,6 +372,11 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
             >
               <MetricCard label="Atendimentos" value={report.serviceCount} />
               <MetricCard
+                detail={
+                  (report.tipsCents ?? 0) > 0
+                    ? `Serviços: ${formatCurrency(report.grossServicesCents ?? report.grossRevenueCents - report.tipsCents)} · Gorjetas: + ${formatCurrency(report.tipsCents)}`
+                    : undefined
+                }
                 label="Receita bruta"
                 value={formatCurrency(report.grossRevenueCents)}
               />
@@ -370,30 +426,86 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                 <>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <MetricCard
+                      detail={
+                        (displayedSettlement.admin.tipsCents ?? 0) > 0
+                          ? `+ ${formatCurrency(displayedSettlement.admin.tipsCents)} em gorjetas próprias`
+                          : undefined
+                      }
                       label="Atendimentos próprios do administrador"
                       value={formatCurrency(
                         displayedSettlement.admin.ownServicesCents,
                       )}
                     />
                     <MetricCard
+                      detail={
+                        displayedSettlement.dailyOperatorsTipsCents > 0
+                          ? "50% sobre serviços (sem gorjetas)"
+                          : undefined
+                      }
                       label="Participação dos operadores"
                       value={formatCurrency(
                         displayedSettlement.admin.dailyOperatorsShareCents,
                       )}
                     />
                     <MetricCard
+                      detail={
+                        (displayedSettlement.admin.tipsCents ?? 0) > 0
+                          ? `Inclui ${formatCurrency(displayedSettlement.admin.tipsCents)} de gorjetas`
+                          : undefined
+                      }
                       label="Total líquido ao administrador"
                       value={formatCurrency(
                         displayedSettlement.admin.totalDueCents,
                       )}
                     />
                     <MetricCard
+                      detail={
+                        displayedSettlement.dailyOperatorsTipsCents > 0
+                          ? `Inclui ${formatCurrency(displayedSettlement.dailyOperatorsTipsCents)} de gorjetas`
+                          : undefined
+                      }
                       label="Total líquido aos operadores"
                       value={formatCurrency(
                         displayedSettlement.dailyOperatorsTotalDueCents,
                       )}
                     />
                   </div>
+                  {(displayedSettlement.tipsCents > 0 ||
+                    (displayedSettlement.admin.tipsCents ?? 0) > 0 ||
+                    displayedSettlement.dailyOperatorsTipsCents > 0) && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3.5 py-2.5 text-xs text-[#34443a]">
+                      <span>
+                        Serviços no fechamento:{" "}
+                        <strong>
+                          {formatCurrency(
+                            displayedSettlement.grossServicesCents,
+                          )}
+                        </strong>
+                      </span>
+                      <span>
+                        Gorjetas no fechamento:{" "}
+                        <strong className="text-[#2f6840]">
+                          +{" "}
+                          {formatCurrency(
+                            displayedSettlement.tipsCents ||
+                              (displayedSettlement.admin.tipsCents ?? 0) +
+                                displayedSettlement.dailyOperatorsTipsCents,
+                          )}
+                        </strong>{" "}
+                        <span className="text-[#617067]">
+                          (Admin:{" "}
+                          {formatCurrency(
+                            displayedSettlement.admin.tipsCents ?? 0,
+                          )}{" "}
+                          · Operadores:{" "}
+                          {formatCurrency(
+                            displayedSettlement.dailyOperatorsTipsCents,
+                          )}
+                          )
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   {displayedSettlement.status === "closed" &&
                     displayedSettlement.closedAt && (
                       <p className="mt-4 mb-0 text-sm text-[#617067]">
@@ -449,31 +561,42 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                         Fechamento por operador
                       </h3>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        {displayedSettlement.dailyOperators.map((operator) => (
-                          <div
-                            className="grid gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5"
-                            key={operator.userId}
-                          >
-                            <strong className="text-[#23372a]">
-                              {operator.userName}
-                            </strong>
-                            <span className="text-sm text-[#617067]">
-                              Atendimentos: {operator.serviceCount}
-                            </span>
-                            <span className="text-sm text-[#617067]">
-                              Valor bruto:{" "}
-                              {formatCurrency(operator.grossServicesCents)}
-                            </span>
-                            <span className="text-sm text-[#617067]">
-                              Parte do operador:{" "}
-                              {formatCurrency(operator.operatorShareCents)}
-                            </span>
-                            <span className="text-sm text-[#617067]">
-                              Parte do administrador:{" "}
-                              {formatCurrency(operator.adminShareCents)}
-                            </span>
-                          </div>
-                        ))}
+                        {displayedSettlement.dailyOperators.map((operator) => {
+                          const operatorTipsCents = operator.tipsCents ?? 0;
+                          return (
+                            <div
+                              className="grid gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5"
+                              key={operator.userId}
+                            >
+                              <strong className="text-[#23372a]">
+                                {operator.userName}
+                              </strong>
+                              <span className="text-sm text-[#617067]">
+                                Atendimentos: {operator.serviceCount}
+                              </span>
+                              <span className="text-sm text-[#617067]">
+                                {operatorTipsCents > 0
+                                  ? "Serviços (bruto)"
+                                  : "Valor bruto"}
+                                : {formatCurrency(operator.grossServicesCents)}
+                              </span>
+                              {operatorTipsCents > 0 && (
+                                <span className="text-sm font-medium text-[#2f6840]">
+                                  Gorjetas (100% operador): +{" "}
+                                  {formatCurrency(operatorTipsCents)}
+                                </span>
+                              )}
+                              <span className="text-sm text-[#617067]">
+                                Parte do operador:{" "}
+                                {formatCurrency(operator.operatorShareCents)}
+                              </span>
+                              <span className="text-sm text-[#617067]">
+                                Parte do administrador:{" "}
+                                {formatCurrency(operator.adminShareCents)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -534,33 +657,59 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                 </p>
               ) : (
                 <ul className="m-0 grid list-none gap-2.5 p-0">
-                  {records.map((record) => (
-                    <li
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
-                      key={record.id}
-                    >
-                      <span className="grid min-w-0 gap-0.5">
-                        <strong>{record.serviceName || "Serviço"}</strong>
-                        <small className="text-xs text-[#617067]">
-                          {paymentMethodLabel(record.paymentMethod)}
-                          {record.createdBy
-                            ? ` · Lançado por: ${record.createdBy.name}`
-                            : ""}
-                        </small>
-                      </span>
-                      <div className="grid shrink-0 justify-items-end gap-1 text-right">
-                        <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                          Minha parte (50%):{" "}
-                          <strong className="text-sm">
-                            {formatCurrency(record.operatorShareCents)}
-                          </strong>
+                  {records.map((record) => {
+                    const tipCents = record.tipCents ?? 0;
+                    const totalCents =
+                      record.totalCents ?? record.priceCents + tipCents;
+                    const tipWithDifferentMethod =
+                      tipCents > 0 &&
+                      record.tipPaymentMethod &&
+                      record.tipPaymentMethod !== record.paymentMethod
+                        ? record.tipPaymentMethod
+                        : null;
+
+                    return (
+                      <li
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
+                        key={record.id}
+                      >
+                        <span className="grid min-w-0 gap-1">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <strong>{record.serviceName || "Serviço"}</strong>
+                            {tipCents > 0 && (
+                              <span className="inline-flex items-center rounded-md border border-[#cfe0d3] bg-white px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                                + {formatCurrency(tipCents)} gorjeta
+                                {tipWithDifferentMethod
+                                  ? ` (${paymentMethodLabel(tipWithDifferentMethod)})`
+                                  : ""}
+                              </span>
+                            )}
+                          </span>
+                          <small className="text-xs text-[#617067]">
+                            {paymentMethodLabel(record.paymentMethod)}
+                            {record.createdBy
+                              ? ` · Lançado por: ${record.createdBy.name}`
+                              : ""}
+                          </small>
                         </span>
-                        <small className="text-xs text-[#617067]">
-                          Valor bruto: {formatCurrency(record.priceCents)}
-                        </small>
-                      </div>
-                    </li>
-                  ))}
+                        <div className="grid shrink-0 justify-items-end gap-1 text-right">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                            {tipCents > 0
+                              ? "Minha parte:"
+                              : "Minha parte (50%):"}{" "}
+                            <strong className="text-sm">
+                              {formatCurrency(record.operatorShareCents)}
+                            </strong>
+                          </span>
+                          <small className="text-xs text-[#617067]">
+                            {tipCents > 0
+                              ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
+                              : `Valor bruto: ${formatCurrency(record.priceCents)}`}
+                          </small>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </Panel>

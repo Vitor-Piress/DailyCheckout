@@ -34,6 +34,8 @@ export type ServiceType = {
 export type CreateServiceRecordInput = {
   serviceTypeId: string;
   paymentMethod: PaymentMethod;
+  tipCents?: number;
+  tipPaymentMethod?: PaymentMethod;
   occurredAt?: string;
   notes?: string;
 };
@@ -43,9 +45,12 @@ export type ServiceRecord = {
   serviceTypeId: string;
   serviceName: string;
   priceCents: number;
+  tipCents: number;
+  totalCents: number;
   operatorShareCents: number;
   adminShareCents: number;
   paymentMethod: PaymentMethod;
+  tipPaymentMethod: PaymentMethod | null;
   occurredAt: string;
   notes?: string | null;
   createdAt: string;
@@ -88,6 +93,8 @@ export type ServiceSummary = {
 export type PaymentSummary = {
   paymentMethod: PaymentMethod;
   quantity: number;
+  servicesCents: number;
+  tipsCents: number;
   totalCents: number;
 };
 
@@ -101,6 +108,7 @@ export type SettlementOperator = {
   userId: string;
   userName: string;
   grossServicesCents: number;
+  tipsCents: number;
   operatorShareCents: number;
   adminShareCents: number;
   serviceCount: number;
@@ -108,6 +116,7 @@ export type SettlementOperator = {
 
 export type SettlementAdminSummary = {
   ownServicesCents: number;
+  tipsCents: number;
   dailyOperatorsShareCents: number;
   totalDueCents: number;
 };
@@ -124,8 +133,10 @@ export type ClosedSettlement = {
   closedBy: { userId: string; userName: string } | null;
   admin: SettlementAdminSummary;
   dailyOperators: SettlementOperator[];
+  dailyOperatorsTipsCents?: number;
   dailyOperatorsTotalDueCents: number;
   grossServicesCents: number;
+  tipsCents?: number;
   unidentifiedServicesCents: number;
   unidentifiedServiceCount: number;
 };
@@ -136,6 +147,8 @@ export type DailyReportSettlement = {
   admin: SettlementAdminSummary;
   dailyOperators: SettlementOperator[];
   grossServicesCents: number;
+  tipsCents: number;
+  dailyOperatorsTipsCents: number;
   dailyOperatorsTotalDueCents: number;
   adminTotalDueCents: number;
   unidentifiedServicesCents: number;
@@ -157,7 +170,9 @@ export type PeriodicSettlement = {
   periodEndDate: string;
   calculationMode: "daily_snapshots_and_open_days";
   adminOwnServicesCents: number;
+  adminTipsCents?: number;
   dailyOperatorsGrossServicesCents: number;
+  dailyOperatorsTipsCents?: number;
   dailyOperatorsShareCents: number;
   adminDailyOperatorsShareCents: number;
   adminTotalDueCents: number;
@@ -175,6 +190,8 @@ export type OperatorDailyShare = {
   userName: string;
   serviceCount: number;
   grossServicesCents: number;
+  tipsCents: number;
+  grossRevenueCents: number;
   operatorShareCents: number;
   adminShareCents: number;
   sharePercentage: 50;
@@ -199,13 +216,20 @@ export type UserReportSummary = {
   userName: string;
   role: UserRole | null;
   serviceCount: number;
+  grossServicesCents?: number;
+  tipsCents?: number;
   grossRevenueCents: number;
   operatorShareCents?: number;
   adminShareCents?: number;
   services: UserServiceSummary[];
 };
 
-export type DailyUserReportSummary = Omit<UserReportSummary, "services"> & {
+export type DailyUserReportSummary = Omit<
+  UserReportSummary,
+  "services" | "grossServicesCents" | "tipsCents"
+> & {
+  grossServicesCents: number;
+  tipsCents: number;
   operatorShareCents: number;
   adminShareCents: number;
   services: DailyUserServiceSummary[];
@@ -216,6 +240,8 @@ export type DailyReport = {
   services: ServiceSummary[];
   paymentMethods: PaymentSummary[];
   serviceCount: number;
+  grossServicesCents: number;
+  tipsCents: number;
   grossRevenueCents: number;
   operatorShare: OperatorDailyShare | null;
   users: DailyUserReportSummary[];
@@ -227,6 +253,7 @@ export type FlexibleOperatorSummary = {
   userName: string;
   serviceCount: number;
   grossServicesCents: number;
+  tipsCents: number;
   expenseCents: number;
   adminShareCents: number;
 };
@@ -234,6 +261,7 @@ export type FlexibleOperatorSummary = {
 export type FlexibleOperatorsExpense = {
   totalCents: number;
   grossServicesCents: number;
+  tipsCents: number;
   adminShareCents: number;
   serviceCount: number;
   isFlexible: boolean;
@@ -245,6 +273,8 @@ export type PeriodicReport = {
   startDate: string;
   endDate: string;
   serviceCount: number;
+  grossServicesCents: number;
+  tipsCents: number;
   grossRevenueCents: number;
   expenseCount: number;
   expensesCents: number;

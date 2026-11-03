@@ -4,14 +4,18 @@ import { paymentOptions } from "../../lib/formatters";
 export function PaymentMethodSelector({
   value,
   onChange,
+  legend = "Forma de pagamento",
+  name = "payment-method",
 }: {
   value: PaymentMethod | null;
   onChange: (value: PaymentMethod) => void;
+  legend?: string;
+  name?: string;
 }) {
   return (
     <fieldset className="grid gap-2 border-0 p-0">
       <legend className="mb-1 text-sm font-bold text-[#34443a]">
-        Forma de pagamento
+        {legend}
       </legend>
       {paymentOptions.map((option) => (
         <label
@@ -25,7 +29,7 @@ export function PaymentMethodSelector({
           <input
             checked={value === option.value}
             className="accent-[#2f6840]"
-            name="payment-method"
+            name={name}
             onChange={() => onChange(option.value)}
             type="radio"
             value={option.value}

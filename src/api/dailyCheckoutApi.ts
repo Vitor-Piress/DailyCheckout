@@ -52,12 +52,29 @@ export function listServiceTypes(): Promise<ServiceType[]> {
 export function createServiceRecord(
   input: CreateServiceRecordInput,
 ): Promise<ServiceRecord> {
+  const tipCents =
+    typeof input.tipCents === "number" && input.tipCents > 0
+      ? Math.trunc(input.tipCents)
+      : 0;
+  const payload: CreateServiceRecordInput = {
+    serviceTypeId: input.serviceTypeId,
+    paymentMethod: input.paymentMethod,
+    ...(tipCents > 0 ? { tipCents } : {}),
+    ...(tipCents > 0 &&
+    input.tipPaymentMethod &&
+    input.tipPaymentMethod !== input.paymentMethod
+      ? { tipPaymentMethod: input.tipPaymentMethod }
+      : {}),
+    ...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
+    ...(input.notes ? { notes: input.notes } : {}),
+  };
+
   return request<ServiceRecord>("/service-records", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(payload),
   });
 }
 

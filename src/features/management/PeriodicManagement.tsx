@@ -39,6 +39,11 @@ function PeriodicPrintReport({
   report: PeriodicReport;
   reportEndDate: string;
 }) {
+  const reportTipsCents = report.tipsCents ?? 0;
+  const reportServicesCents =
+    report.grossServicesCents ?? report.grossRevenueCents - reportTipsCents;
+  const operatorsTipsCents = report.dailyOperatorsExpense.tipsCents ?? 0;
+
   return (
     <article className="periodic-print-only">
       <header className="print-report-header">
@@ -56,6 +61,12 @@ function PeriodicPrintReport({
           <div>
             <span>Receita bruta</span>
             <strong>{formatCurrency(report.grossRevenueCents)}</strong>
+            {reportTipsCents > 0 && (
+              <span>
+                Serviços: {formatCurrency(reportServicesCents)} · Gorjetas: +{" "}
+                {formatCurrency(reportTipsCents)}
+              </span>
+            )}
           </div>
           <div>
             <span>Total de despesas</span>
@@ -84,13 +95,20 @@ function PeriodicPrintReport({
             </span>
           </div>
           <div>
-            <span>Comissão operadores (50% — variável)</span>
+            <span>
+              {operatorsTipsCents > 0
+                ? "Comissão operadores (50% + gorjetas — variável)"
+                : "Comissão operadores (50% — variável)"}
+            </span>
             <strong>{formatCurrency(report.dailyOperatorsExpenseCents)}</strong>
             <span>
               {report.dailyOperatorsExpense.serviceCount}{" "}
               {report.dailyOperatorsExpense.serviceCount === 1
                 ? "atendimento"
                 : "atendimentos"}
+              {operatorsTipsCents > 0
+                ? ` · Gorjetas: + ${formatCurrency(operatorsTipsCents)}`
+                : ""}
             </span>
           </div>
           <div>
@@ -115,8 +133,15 @@ function PeriodicPrintReport({
                 <tr>
                   <th>Operador</th>
                   <th>Serviços</th>
-                  <th>Bruto gerado</th>
-                  <th>Comissão / Despesa (50%)</th>
+                  <th>
+                    {operatorsTipsCents > 0 ? "Bruto serviços" : "Bruto gerado"}
+                  </th>
+                  {operatorsTipsCents > 0 && <th>Gorjetas</th>}
+                  <th>
+                    {operatorsTipsCents > 0
+                      ? "Comissão / Despesa (50% + gorjetas)"
+                      : "Comissão / Despesa (50%)"}
+                  </th>
                   <th>Parte Admin (50%)</th>
                 </tr>
               </thead>
@@ -126,6 +151,9 @@ function PeriodicPrintReport({
                     <td>{operator.userName}</td>
                     <td>{operator.serviceCount}</td>
                     <td>{formatCurrency(operator.grossServicesCents)}</td>
+                    {operatorsTipsCents > 0 && (
+                      <td>{formatCurrency(operator.tipsCents ?? 0)}</td>
+                    )}
                     <td>{formatCurrency(operator.expenseCents)}</td>
                     <td>{formatCurrency(operator.adminShareCents)}</td>
                   </tr>
@@ -171,28 +199,39 @@ function PeriodicPrintReport({
             </tr>
           </thead>
           <tbody>
-            {(report.users ?? []).map((user) => (
-              <tr key={user.userId ?? "unknown-author"}>
-                <td>{user.userName}</td>
-                <td>
-                  {user.role === "admin"
-                    ? "Administrador"
-                    : user.role === "daily_operator"
-                      ? "Operador diário"
-                      : "Não identificado"}
-                </td>
-                <td>{user.serviceCount}</td>
-                <td>{formatCurrency(user.grossRevenueCents)}</td>
-                <td>
-                  {user.services
-                    .map(
-                      (service) =>
-                        `${service.serviceName} (${service.quantity} — ${formatCurrency(service.totalCents)})`,
-                    )
-                    .join("; ") || "Nenhum"}
-                </td>
-              </tr>
-            ))}
+            {(report.users ?? []).map((user) => {
+              const userTipsCents = user.tipsCents ?? 0;
+              const userServicesCents =
+                user.grossServicesCents ??
+                user.grossRevenueCents - userTipsCents;
+              return (
+                <tr key={user.userId ?? "unknown-author"}>
+                  <td>{user.userName}</td>
+                  <td>
+                    {user.role === "admin"
+                      ? "Administrador"
+                      : user.role === "daily_operator"
+                        ? "Operador diário"
+                        : "Não identificado"}
+                  </td>
+                  <td>{user.serviceCount}</td>
+                  <td>
+                    {formatCurrency(user.grossRevenueCents)}
+                    {userTipsCents > 0
+                      ? ` (Serviços: ${formatCurrency(userServicesCents)} · Gorjetas: + ${formatCurrency(userTipsCents)})`
+                      : ""}
+                  </td>
+                  <td>
+                    {user.services
+                      .map(
+                        (service) =>
+                          `${service.serviceName} (${service.quantity} — ${formatCurrency(service.totalCents)})`,
+                      )
+                      .join("; ") || "Nenhum"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </section>
@@ -645,6 +684,11 @@ export function PeriodicManagement({
           </div>
           <div className="motion-stagger grid min-w-0 grid-cols-1 gap-4 min-[26rem]:grid-cols-2 sm:grid-cols-4">
             <MetricCard
+              detail={
+                (report.tipsCents ?? 0) > 0
+                  ? `Serviços: ${formatCurrency(report.grossServicesCents ?? report.grossRevenueCents - report.tipsCents)} · Gorjetas: + ${formatCurrency(report.tipsCents)}`
+                  : undefined
+              }
               label="Receita bruta"
               value={formatCurrency(report.grossRevenueCents)}
             />
@@ -689,7 +733,9 @@ export function PeriodicManagement({
               <div className="grid content-start gap-2 rounded-xl border border-[#ead9a6] bg-[#fffdf6] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-bold uppercase tracking-[0.06em] text-[#805d12]">
-                    Despesa variável — Comissão operadores (50%)
+                    {(report.dailyOperatorsExpense.tipsCents ?? 0) > 0
+                      ? "Despesa variável — Comissão operadores (50% + gorjetas)"
+                      : "Despesa variável — Comissão operadores (50%)"}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2.5 py-0.5 text-xs font-bold text-[#805d12]">
                     <RefreshCw aria-hidden="true" size={12} />
@@ -704,9 +750,26 @@ export function PeriodicManagement({
                   {report.dailyOperatorsExpense.serviceCount === 1
                     ? "atendimento"
                     : "atendimentos"}{" "}
-                  de operadores · Bruto gerado:{" "}
-                  {formatCurrency(
-                    report.dailyOperatorsExpense.grossServicesCents,
+                  de operadores ·{" "}
+                  {(report.dailyOperatorsExpense.tipsCents ?? 0) > 0 ? (
+                    <>
+                      Serviços:{" "}
+                      {formatCurrency(
+                        report.dailyOperatorsExpense.grossServicesCents,
+                      )}{" "}
+                      · Gorjetas:{" "}
+                      <strong className="text-[#2f6840]">
+                        +{" "}
+                        {formatCurrency(report.dailyOperatorsExpense.tipsCents)}
+                      </strong>
+                    </>
+                  ) : (
+                    <>
+                      Bruto gerado:{" "}
+                      {formatCurrency(
+                        report.dailyOperatorsExpense.grossServicesCents,
+                      )}
+                    </>
                   )}
                 </p>
                 <p className="m-0 rounded-lg border border-[#ead9a6] bg-[#fff9e8] px-2.5 py-2 text-xs text-[#805d12]">
@@ -722,44 +785,61 @@ export function PeriodicManagement({
                   Comissão por operador (despesa variável)
                 </h3>
                 <div className="grid gap-2.5 sm:grid-cols-2">
-                  {report.dailyOperatorsExpense.operators.map((operator) => (
-                    <div
-                      className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5"
-                      key={operator.userId}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-[#23372a]">
-                          {operator.userName}
-                        </strong>
-                        <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-[#617067]">
-                          {operator.serviceCount}{" "}
-                          {operator.serviceCount === 1 ? "serviço" : "serviços"}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#617067]">
-                        <span>
-                          Bruto gerado:{" "}
-                          <strong className="text-[#34443a]">
-                            {formatCurrency(operator.grossServicesCents)}
+                  {report.dailyOperatorsExpense.operators.map((operator) => {
+                    const operatorTipsCents = operator.tipsCents ?? 0;
+                    return (
+                      <div
+                        className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5"
+                        key={operator.userId}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-[#23372a]">
+                            {operator.userName}
                           </strong>
-                        </span>
-                        <span>
-                          Admin (50%):{" "}
-                          <strong className="text-[#2f6840]">
-                            {formatCurrency(operator.adminShareCents)}
-                          </strong>
-                        </span>
+                          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-[#617067]">
+                            {operator.serviceCount}{" "}
+                            {operator.serviceCount === 1
+                              ? "serviço"
+                              : "serviços"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#617067]">
+                          <span>
+                            {operatorTipsCents > 0
+                              ? "Serviços:"
+                              : "Bruto gerado:"}{" "}
+                            <strong className="text-[#34443a]">
+                              {formatCurrency(operator.grossServicesCents)}
+                            </strong>
+                          </span>
+                          {operatorTipsCents > 0 && (
+                            <span>
+                              Gorjetas (100% op.):{" "}
+                              <strong className="text-[#2f6840]">
+                                + {formatCurrency(operatorTipsCents)}
+                              </strong>
+                            </span>
+                          )}
+                          <span>
+                            Admin (50%):{" "}
+                            <strong className="text-[#2f6840]">
+                              {formatCurrency(operator.adminShareCents)}
+                            </strong>
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-center justify-between gap-2 border-t border-[#e8eee9] pt-2 text-sm">
+                          <span className="font-bold text-[#34443a]">
+                            {operatorTipsCents > 0
+                              ? "Comissão / Despesa (50% + gorjetas)"
+                              : "Comissão / Despesa (50%)"}
+                          </span>
+                          <b className="text-[#a83e3e]">
+                            {formatCurrency(operator.expenseCents)}
+                          </b>
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex items-center justify-between gap-2 border-t border-[#e8eee9] pt-2 text-sm">
-                        <span className="font-bold text-[#34443a]">
-                          Comissão / Despesa (50%)
-                        </span>
-                        <b className="text-[#a83e3e]">
-                          {formatCurrency(operator.expenseCents)}
-                        </b>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

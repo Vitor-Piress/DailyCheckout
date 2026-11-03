@@ -68,6 +68,17 @@ export function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
+export function parseAtmCurrencyInput(
+  rawValue: string,
+  maxDigits = 7,
+): number {
+  const digits = rawValue
+    .replace(/\D/g, "")
+    .replace(/^0+/, "")
+    .slice(0, maxDigits);
+  return digits ? Number.parseInt(digits, 10) : 0;
+}
+
 export function getToday(): string {
   const today = new Date();
   const month = String(today.getMonth() + 1).padStart(2, "0");
