@@ -136,102 +136,6 @@ function PeriodicPrintReport({
         )}
       </section>
 
-      {report.settlement && (
-        <section className="print-section">
-          <h2>Apuração financeira</h2>
-          <h3>Resumo financeiro do período</h3>
-          <div className="print-metrics">
-            <div>
-              <span>Atendimentos próprios do admin</span>
-              <strong>
-                {formatCurrency(report.settlement.adminOwnServicesCents)}
-              </strong>
-            </div>
-            <div>
-              <span>Atendimentos brutos dos operadores</span>
-              <strong>
-                {formatCurrency(
-                  report.settlement.dailyOperatorsGrossServicesCents,
-                )}
-              </strong>
-            </div>
-            <div>
-              <span>Total líquido dos operadores</span>
-              <strong>
-                {formatCurrency(report.settlement.dailyOperatorsTotalDueCents)}
-              </strong>
-            </div>
-            <div>
-              <span>Total líquido ao admin</span>
-              <strong>
-                {formatCurrency(report.settlement.adminTotalDueCents)}
-              </strong>
-            </div>
-          </div>
-          <p>
-            Dias fechados: {report.settlement.closedDaysCount} · Dias abertos:{" "}
-            {report.settlement.openDaysCount}
-          </p>
-          {report.settlement.unidentifiedServiceCount > 0 && (
-            <p className="print-warning">
-              Atendimentos sem autor identificado:{" "}
-              {report.settlement.unidentifiedServiceCount} atendimento(s) —{" "}
-              {formatCurrency(report.settlement.unidentifiedServicesCents)}
-            </p>
-          )}
-
-          <h3>Dias do período</h3>
-          <table className="print-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Status</th>
-                <th>Admin</th>
-                <th>Operadores</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.settlement.days.map((day) => (
-                <tr key={day.date}>
-                  <td>{formatIsoDate(day.date)}</td>
-                  <td>{day.status === "closed" ? "Fechado" : "Aberto"}</td>
-                  <td>{formatCurrency(day.adminTotalDueCents)}</td>
-                  <td>{formatCurrency(day.dailyOperatorsTotalDueCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {report.settlement.dailyOperators.length > 0 && (
-            <>
-              <h3>Participação por operador</h3>
-              <table className="print-table">
-                <thead>
-                  <tr>
-                    <th>Operador</th>
-                    <th>Atendimentos</th>
-                    <th>Bruto</th>
-                    <th>Operador</th>
-                    <th>Admin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.settlement.dailyOperators.map((operator) => (
-                    <tr key={operator.userId}>
-                      <td>{operator.userName}</td>
-                      <td>{operator.serviceCount}</td>
-                      <td>{formatCurrency(operator.grossServicesCents)}</td>
-                      <td>{formatCurrency(operator.operatorShareCents)}</td>
-                      <td>{formatCurrency(operator.adminShareCents)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </section>
-      )}
-
       <section className="print-section">
         <h2>Despesas por forma de pagamento</h2>
         <table className="print-table">
@@ -292,6 +196,43 @@ function PeriodicPrintReport({
           </tbody>
         </table>
       </section>
+
+      {report.settlement && (
+        <section className="print-section">
+          <h2>Dias do período</h2>
+          <p>
+            Dias fechados: {report.settlement.closedDaysCount} · Dias abertos:{" "}
+            {report.settlement.openDaysCount}
+          </p>
+          {report.settlement.unidentifiedServiceCount > 0 && (
+            <p className="print-warning">
+              Atendimentos sem autor identificado:{" "}
+              {report.settlement.unidentifiedServiceCount} atendimento(s) —{" "}
+              {formatCurrency(report.settlement.unidentifiedServicesCents)}
+            </p>
+          )}
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Status</th>
+                <th>Admin</th>
+                <th>Operadores</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.settlement.days.map((day) => (
+                <tr key={day.date}>
+                  <td>{formatIsoDate(day.date)}</td>
+                  <td>{day.status === "closed" ? "Fechado" : "Aberto"}</td>
+                  <td>{formatCurrency(day.adminTotalDueCents)}</td>
+                  <td>{formatCurrency(day.dailyOperatorsTotalDueCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
       <footer className="print-report-footer">
         Documento gerado pelo DailyCheckout
       </footer>
@@ -841,42 +782,32 @@ export function PeriodicManagement({
               </div>
             </div>
           </Panel>
+          <div>
+            <h2 className="mb-4 text-base">Despesas por forma de pagamento</h2>
+            <SummaryList
+              emptyMessage="Nenhuma despesa registrada neste período."
+              items={report.expensesByPaymentMethod.map((payment) => ({
+                label: paymentMethodLabel(payment.paymentMethod),
+                detail: `${payment.quantity} despesa(s)`,
+                value: formatCurrency(payment.totalCents),
+              }))}
+            />
+          </div>
+          <UserReportGroups users={report.users ?? []} />
           {role === "admin" && report.settlement && (
-            <Panel className="grid gap-4">
-              <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                  Apuração financeira
-                </p>
-                <h2 className="m-0 text-base">Resumo financeiro do período</h2>
+            <Panel className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+                    Histórico diário
+                  </p>
+                  <h2 className="m-0 text-base">Dias do período</h2>
+                </div>
+                <span className="text-xs font-bold text-[#617067]">
+                  Fechados: {report.settlement.closedDaysCount} · Abertos:{" "}
+                  {report.settlement.openDaysCount}
+                </span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricCard
-                  label="Atendimentos próprios do admin"
-                  value={formatCurrency(
-                    report.settlement.adminOwnServicesCents,
-                  )}
-                />
-                <MetricCard
-                  label="Atendimentos brutos dos operadores"
-                  value={formatCurrency(
-                    report.settlement.dailyOperatorsGrossServicesCents,
-                  )}
-                />
-                <MetricCard
-                  label="Total líquido dos operadores"
-                  value={formatCurrency(
-                    report.settlement.dailyOperatorsTotalDueCents,
-                  )}
-                />
-                <MetricCard
-                  label="Total líquido ao admin"
-                  value={formatCurrency(report.settlement.adminTotalDueCents)}
-                />
-              </div>
-              <p className="m-0 text-sm text-[#617067]">
-                Dias fechados: {report.settlement.closedDaysCount} · Dias
-                abertos: {report.settlement.openDaysCount}
-              </p>
               {report.settlement.openDaysCount > 0 &&
                 report.settlement.closedDaysCount > 0 && (
                   <p className="m-0 rounded-lg bg-[#fff9e8] p-3 text-sm text-[#805d12]">
@@ -913,9 +844,6 @@ export function PeriodicManagement({
                     <ChevronDown aria-hidden="true" size={18} />
                   )}
                 </button>
-                <h3 className="m-0 hidden text-sm font-bold text-[#34443a] print:block">
-                  Dias do período
-                </h3>
                 <div
                   className="motion-expand"
                   data-expanded={daysExpanded}
@@ -941,41 +869,8 @@ export function PeriodicManagement({
                   </div>
                 </div>
               </div>
-              {report.settlement.dailyOperators.length > 0 && (
-                <div className="grid gap-2">
-                  <h3 className="m-0 text-sm font-bold text-[#34443a]">
-                    Participação por operador
-                  </h3>
-                  {report.settlement.dailyOperators.map((operator) => (
-                    <div
-                      className="grid gap-1 rounded-lg border border-[#dce5dd] p-3"
-                      key={operator.userId}
-                    >
-                      <strong>{operator.userName}</strong>
-                      <span className="text-sm text-[#617067]">
-                        {operator.serviceCount} atendimento(s) · Bruto{" "}
-                        {formatCurrency(operator.grossServicesCents)} · Operador{" "}
-                        {formatCurrency(operator.operatorShareCents)} · Admin{" "}
-                        {formatCurrency(operator.adminShareCents)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </Panel>
           )}
-          <div>
-            <h2 className="mb-4 text-base">Despesas por forma de pagamento</h2>
-            <SummaryList
-              emptyMessage="Nenhuma despesa registrada neste período."
-              items={report.expensesByPaymentMethod.map((payment) => ({
-                label: paymentMethodLabel(payment.paymentMethod),
-                detail: `${payment.quantity} despesa(s)`,
-                value: formatCurrency(payment.totalCents),
-              }))}
-            />
-          </div>
-          <UserReportGroups users={report.users ?? []} />
           </div>
           <PeriodicPrintReport
             period={period}

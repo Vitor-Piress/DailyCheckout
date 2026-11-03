@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   closeDailySettlement,
   getDailyReport,
@@ -47,29 +47,10 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const groupedRecords = useMemo(() => {
-    const groups = new Map<
-      string,
-      { name: string; records: ServiceRecord[] }
-    >();
-
-    for (const record of records) {
-      const groupKey = record.createdBy?.id ?? "unknown";
-      const groupName = record.createdBy?.name ?? "Autor não identificado";
-      const group = groups.get(groupKey);
-      if (group) {
-        group.records.push(record);
-      } else {
-        groups.set(groupKey, { name: groupName, records: [record] });
-      }
-    }
-
-    return [...groups.values()];
-  }, [records]);
 
   useEffect(() => {
     void Promise.all([
-      listServiceRecords(date),
+      role === "admin" ? Promise.resolve([]) : listServiceRecords(date),
       getDailyReport(date),
       listServiceTypes(),
     ])
@@ -534,106 +515,56 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               )}
             </Panel>
           )}
-          <Panel>
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                  Atendimentos realizados
+          {role !== "admin" && (
+            <Panel>
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+                    Atendimentos realizados
+                  </p>
+                  <h2 className="m-0 text-base leading-tight">
+                    Registros do dia
+                  </h2>
+                </div>
+                <ClipboardList className="text-[#4a7957]" size={24} />
+              </div>
+              {records.length === 0 ? (
+                <p className="m-0 text-[#617067]">
+                  Nenhum atendimento nesta data.
                 </p>
-                <h2 className="m-0 text-base leading-tight">
-                  Registros do dia
-                </h2>
-              </div>
-              <ClipboardList className="text-[#4a7957]" size={24} />
-            </div>
-            {records.length === 0 ? (
-              <p className="m-0 text-[#617067]">
-                Nenhum atendimento nesta data.
-              </p>
-            ) : (
-              <div
-                className={
-                  role === "admin"
-                    ? "grid gap-4 sm:grid-cols-2 sm:items-start"
-                    : "grid gap-5"
-                }
-              >
-                {(role === "admin"
-                  ? groupedRecords
-                  : [{ name: "", records }]
-                ).map((group) => (
-                  <div
-                    className={
-                      role === "admin"
-                        ? "grid gap-3 rounded-xl border border-[#dce5dd] bg-white p-3.5"
-                        : "grid gap-2.5"
-                    }
-                    key={group.name || "records"}
-                  >
-                    {role === "admin" && (
-                      <h3 className="m-0 border-b border-[#e8eee9] pb-2 text-sm font-bold text-[#34443a]">
-                        {group.name}
-                      </h3>
-                    )}
-                    <ul className="m-0 grid list-none gap-2.5 p-0">
-                      {group.records.map((record) =>
-                        role === "daily_operator" ? (
-                          <li
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
-                            key={record.id}
-                          >
-                            <span className="grid min-w-0 gap-0.5">
-                              <strong>{record.serviceName || "Serviço"}</strong>
-                              <small className="text-xs text-[#617067]">
-                                {paymentMethodLabel(record.paymentMethod)}
-                                {record.createdBy
-                                  ? ` · Lançado por: ${record.createdBy.name}`
-                                  : ""}
-                              </small>
-                            </span>
-                            <div className="grid shrink-0 justify-items-end gap-1 text-right">
-                              <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                                Minha parte (50%):{" "}
-                                <strong className="text-sm">
-                                  {formatCurrency(record.operatorShareCents)}
-                                </strong>
-                              </span>
-                              <small className="text-xs text-[#617067]">
-                                Valor bruto: {formatCurrency(record.priceCents)}
-                              </small>
-                            </div>
-                          </li>
-                        ) : (
-                          <li
-                            className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
-                            key={record.id}
-                          >
-                            <span className="grid gap-0.5">
-                              <strong>{record.serviceName || "Serviço"}</strong>
-                              {record.operatorShareCents > 0 && (
-                                <small className="text-xs text-[#617067]">
-                                  50% op.:{" "}
-                                  {formatCurrency(record.operatorShareCents)} ·
-                                  50% admin:{" "}
-                                  {formatCurrency(record.adminShareCents)}
-                                </small>
-                              )}
-                            </span>
-                            <span className="text-center text-xs text-[#617067]">
-                              {paymentMethodLabel(record.paymentMethod)}
-                            </span>
-                            <b className="justify-self-end whitespace-nowrap text-[#2f6840]">
-                              {formatCurrency(record.priceCents)}
-                            </b>
-                          </li>
-                        ),
-                      )}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
+              ) : (
+                <ul className="m-0 grid list-none gap-2.5 p-0">
+                  {records.map((record) => (
+                    <li
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
+                      key={record.id}
+                    >
+                      <span className="grid min-w-0 gap-0.5">
+                        <strong>{record.serviceName || "Serviço"}</strong>
+                        <small className="text-xs text-[#617067]">
+                          {paymentMethodLabel(record.paymentMethod)}
+                          {record.createdBy
+                            ? ` · Lançado por: ${record.createdBy.name}`
+                            : ""}
+                        </small>
+                      </span>
+                      <div className="grid shrink-0 justify-items-end gap-1 text-right">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                          Minha parte (50%):{" "}
+                          <strong className="text-sm">
+                            {formatCurrency(record.operatorShareCents)}
+                          </strong>
+                        </span>
+                        <small className="text-xs text-[#617067]">
+                          Valor bruto: {formatCurrency(record.priceCents)}
+                        </small>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          )}
         </>
       )}
     </div>
