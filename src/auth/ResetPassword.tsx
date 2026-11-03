@@ -65,17 +65,19 @@ export function ResetPassword() {
   }
 
   return (
-    <section className="mx-auto grid min-h-[calc(100vh-9rem)] w-full max-w-[28rem] content-center gap-5">
-      <div>
+    <section className="motion-page mx-auto grid min-h-dvh w-full max-w-[28rem] content-center gap-5 px-5 py-8 sm:px-6">
+      <div className="px-0.5">
         <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
           DailyCheckout
         </p>
-        <h1 className="mb-2 text-[clamp(1.75rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]">
+        <h1 className="mb-1.5 text-[clamp(1.75rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.04em]">
           Definir nova senha
         </h1>
-        <p className="m-0 text-[#617067]">Escolha uma senha para acessar sua conta.</p>
+        <p className="m-0 text-sm text-[#617067] sm:text-base">
+          Escolha uma senha para acessar sua conta.
+        </p>
       </div>
-      <Panel>
+      <Panel className="p-4 sm:p-5">
         {success ? (
           <div className="grid gap-4">
             <FeedbackMessage
@@ -92,7 +94,7 @@ export function ResetPassword() {
               Nova senha
               <input
                 autoComplete="new-password"
-                className="min-h-11 rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+                className="min-h-11 w-full rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 text-base font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840] sm:text-sm"
                 minLength={8}
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -104,7 +106,7 @@ export function ResetPassword() {
               Confirmar nova senha
               <input
                 autoComplete="new-password"
-                className="min-h-11 rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+                className="min-h-11 w-full rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 text-base font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840] sm:text-sm"
                 minLength={8}
                 onChange={(event) => setConfirmation(event.target.value)}
                 required
@@ -116,6 +118,13 @@ export function ResetPassword() {
             <Button disabled={submitting || !token} type="submit">
               {submitting ? "Salvando..." : "Salvar nova senha"}
             </Button>
+            <button
+              className="min-h-10 rounded-lg px-2 py-1.5 text-sm font-bold text-[#2f6840] underline underline-offset-2 transition hover:bg-[#f5f7f4]"
+              onClick={() => navigate("/login")}
+              type="button"
+            >
+              Voltar para o login
+            </button>
           </form>
         )}
       </Panel>
