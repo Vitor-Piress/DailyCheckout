@@ -234,7 +234,7 @@ function PeriodicPrintReport({
         </section>
       )}
       <footer className="print-report-footer">
-        Documento gerado pelo DailyCheckout
+        Documento gerado pelo DailyCheckout · © Vitor Pires 2026
       </footer>
     </article>
   );

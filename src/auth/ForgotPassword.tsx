@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { FeedbackMessage } from "../components/ui/FeedbackMessage";
 import { Panel } from "../components/ui/Panel";
+import { SignatureFooter } from "../components/layout/SignatureFooter";
 import { authClient } from "./authClient";
 import { useAuth } from "./authContext";
 
@@ -98,6 +99,7 @@ export function ForgotPassword() {
           </form>
         )}
       </Panel>
+      <SignatureFooter className="mt-1" />
     </section>
   );
 }

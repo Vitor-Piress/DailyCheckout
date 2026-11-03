@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import { Button } from "../ui/Button";
 import { Navigation } from "./Navigation";
+import { SignatureFooter } from "./SignatureFooter";
 import { useMotionPreference } from "../../ui/motion";
 
 const logo = "/Original reconstruction — 32px favicon.svg";
@@ -57,10 +58,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </Button>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[70rem] flex-1 px-4 py-6 pb-26 sm:px-8 sm:py-10 sm:pb-26">
-        <div className="motion-page" key={location.pathname}>
+      <main className="mx-auto flex w-full max-w-[70rem] flex-1 flex-col px-4 py-6 pb-26 sm:px-8 sm:py-10 sm:pb-26">
+        <div className="motion-page flex-1" key={location.pathname}>
           {children ?? <Outlet />}
         </div>
+        <SignatureFooter className="mt-10 pt-2" />
       </main>
       <Navigation />
     </div>
