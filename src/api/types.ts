@@ -31,14 +31,128 @@ export type ServiceType = {
   priceCents: number;
 };
 
-export type CreateServiceRecordInput = {
-  serviceTypeId: string;
+export type ClientPackStatus = "active" | "exhausted" | "cancelled" | "canceled";
+
+export type ClientActivePackSummary = {
+  id: string;
+  packPlanId: string;
+  planName: string;
+  totalCuts: number;
+  usedCuts: number;
+  remainingCuts: number;
+  status: ClientPackStatus;
+  needsRenewal: boolean;
+  purchasedAt?: string;
+};
+
+export type Client = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  cpf: string | null;
+  notes: string | null;
+  active: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  hasPackProfile: boolean;
+  activePack: ClientActivePackSummary | null;
+};
+
+export type ClientsListResponse = {
+  items: Client[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type CreateClientInput = {
+  name: string;
+  phone: string;
+  email?: string | null;
+  cpf?: string | null;
+  notes?: string | null;
+};
+
+export type UpdateClientInput = {
+  name?: string;
+  phone?: string;
+  email?: string | null;
+  cpf?: string | null;
+  notes?: string | null;
+  active?: boolean;
+};
+
+export type PackPlan = {
+  id: string;
+  name: string;
+  priceCents: number;
+  totalCuts: number;
+  unitCutPriceCents: number;
+  active?: boolean;
+};
+
+export type CreateClientPackInput = {
+  clientId: string;
+  packPlanId: string;
   paymentMethod: PaymentMethod;
+  redeemFirstCut?: boolean;
   tipCents?: number;
   tipPaymentMethod?: PaymentMethod;
-  occurredAt?: string;
+  email?: string;
+  cpf?: string;
   notes?: string;
 };
+
+export type PackConsumption = {
+  id: string;
+  occurredAt: string;
+  priceCents: number;
+  tipCents: number;
+  notes?: string | null;
+  createdBy: ServiceRecordAuthor | null;
+};
+
+export type ClientPackDetail = {
+  id: string;
+  clientId?: string;
+  packPlanId: string;
+  planName: string;
+  totalCuts: number;
+  usedCuts: number;
+  remainingCuts: number;
+  needsRenewal: boolean;
+  status: ClientPackStatus;
+  priceCents: number;
+  unitCutPriceCents: number;
+  paymentMethod?: PaymentMethod;
+  notes?: string | null;
+  purchasedAt: string;
+  createdBy?: ServiceRecordAuthor | string | null;
+  consumptions?: PackConsumption[];
+};
+
+export type CreateServiceRecordInput =
+  | {
+      serviceTypeId: string;
+      paymentMethod: PaymentMethod;
+      clientId?: string;
+      useActivePack?: false;
+      tipCents?: number;
+      tipPaymentMethod?: PaymentMethod;
+      occurredAt?: string;
+      notes?: string;
+    }
+  | {
+      clientId: string;
+      useActivePack: true;
+      clientPackId?: string;
+      tipCents?: number;
+      tipPaymentMethod?: PaymentMethod;
+      occurredAt?: string;
+      notes?: string;
+    };
 
 export type ServiceRecord = {
   id: string;
@@ -55,6 +169,52 @@ export type ServiceRecord = {
   notes?: string | null;
   createdAt: string;
   createdBy: ServiceRecordAuthor | null;
+  clientId?: string | null;
+  clientName?: string | null;
+  clientPackId?: string | null;
+  packSummary?: ClientActivePackSummary | null;
+  status?: string;
+  canceledAt?: string | null;
+  cancelledAt?: string | null;
+};
+
+export type ClientServiceRecordsFilterType = "all" | "standalone" | "pack";
+
+export type ClientServiceRecordsSummary = {
+  totalServicesCount: number;
+  standaloneServicesCount: number;
+  packServicesCount: number;
+  lastServiceAt: string | null;
+};
+
+export type ClientServiceRecordItem = {
+  id: string;
+  serviceTypeId: string;
+  serviceName: string;
+  clientId: string;
+  clientName: string;
+  clientPackId: string | null;
+  packPlanName: string | null;
+  isPackCut: boolean;
+  priceCents: number;
+  tipCents: number;
+  totalCents: number;
+  paymentMethod: PaymentMethod | null;
+  tipPaymentMethod: PaymentMethod | null;
+  occurredAt: string;
+  notes: string | null;
+  canceledAt: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+  createdBy: ServiceRecordAuthor | null;
+};
+
+export type ClientServiceRecordsResponse = {
+  summary: ClientServiceRecordsSummary;
+  items: ClientServiceRecordItem[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type ServiceRecordAuthor = {
@@ -112,6 +272,8 @@ export type SettlementOperator = {
   operatorShareCents: number;
   adminShareCents: number;
   serviceCount: number;
+  packCutsCount?: number;
+  packCommissionCents?: number;
 };
 
 export type SettlementAdminSummary = {
@@ -139,6 +301,8 @@ export type ClosedSettlement = {
   tipsCents?: number;
   unidentifiedServicesCents: number;
   unidentifiedServiceCount: number;
+  packSalesCents?: number;
+  packCommissionDeductionCents?: number;
 };
 
 export type DailyReportSettlement = {
@@ -153,6 +317,8 @@ export type DailyReportSettlement = {
   adminTotalDueCents: number;
   unidentifiedServicesCents: number;
   unidentifiedServiceCount: number;
+  packSalesCents?: number;
+  packCommissionDeductionCents?: number;
   closedSettlement: ClosedSettlement | null;
   hasDifferenceFromCurrentCalculation: boolean;
   differences: SettlementDifferences | null;
@@ -179,6 +345,8 @@ export type PeriodicSettlement = {
   dailyOperatorsTotalDueCents: number;
   unidentifiedServicesCents: number;
   unidentifiedServiceCount: number;
+  packSalesCents?: number;
+  packCommissionDeductionCents?: number;
   dailyOperators: SettlementOperator[];
   days: SettlementDaySummary[];
   closedDaysCount: number;
@@ -195,6 +363,9 @@ export type OperatorDailyShare = {
   operatorShareCents: number;
   adminShareCents: number;
   sharePercentage: 50;
+  packCutsCount?: number;
+  packCutsReferenceCents?: number;
+  packCommissionCents?: number;
 };
 
 export type UserServiceSummary = {
@@ -221,6 +392,9 @@ export type UserReportSummary = {
   grossRevenueCents: number;
   operatorShareCents?: number;
   adminShareCents?: number;
+  packCutsCount?: number;
+  packCutsReferenceCents?: number;
+  packCommissionCents?: number;
   services: UserServiceSummary[];
 };
 
@@ -243,6 +417,9 @@ export type DailyReport = {
   grossServicesCents: number;
   tipsCents: number;
   grossRevenueCents: number;
+  packSalesCents?: number;
+  packSalesCount?: number;
+  packCutsCount?: number;
   operatorShare: OperatorDailyShare | null;
   users: DailyUserReportSummary[];
   settlement: DailyReportSettlement | null;
@@ -256,6 +433,8 @@ export type FlexibleOperatorSummary = {
   tipsCents: number;
   expenseCents: number;
   adminShareCents: number;
+  packCutsCount?: number;
+  packCommissionCents?: number;
 };
 
 export type FlexibleOperatorsExpense = {
@@ -265,6 +444,8 @@ export type FlexibleOperatorsExpense = {
   adminShareCents: number;
   serviceCount: number;
   isFlexible: boolean;
+  packCutsCount?: number;
+  packCommissionCents?: number;
   operators: FlexibleOperatorSummary[];
 };
 
@@ -276,6 +457,8 @@ export type PeriodicReport = {
   grossServicesCents: number;
   tipsCents: number;
   grossRevenueCents: number;
+  packSalesCents?: number;
+  packSalesCount?: number;
   expenseCount: number;
   expensesCents: number;
   dailyOperatorsExpenseCents: number;

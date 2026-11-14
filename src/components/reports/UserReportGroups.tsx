@@ -99,6 +99,20 @@ export function UserReportGroups({
                         </div>
                       </>
                     )}
+                  {Boolean(user.packCutsCount && user.packCutsCount > 0) && (
+                    <div className="col-span-2 rounded-lg border border-[#c8d6ca] bg-[#e8f2ea] p-2.5 text-xs text-[#2f6840]">
+                      <strong>
+                        Cortes de Pacote: {user.packCutsCount}{" "}
+                        {user.packCutsCount === 1 ? "corte" : "cortes"}
+                      </strong>
+                      <span className="block text-[#4a7957]">
+                        Ref.: {formatCurrency(user.packCutsReferenceCents ?? 0)}
+                        {typeof user.packCommissionCents === "number"
+                          ? ` · Comissão: ${formatCurrency(user.packCommissionCents)}`
+                          : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {user.services.length > 0 ? (
                   <ul className="m-0 grid list-none gap-2 border-t border-[#e8eee9] pt-3">

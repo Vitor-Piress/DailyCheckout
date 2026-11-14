@@ -67,6 +67,12 @@ function PeriodicPrintReport({
                 {formatCurrency(reportTipsCents)}
               </span>
             )}
+            {(report.packSalesCents ?? 0) > 0 && (
+              <span>
+                Pacotes: {formatCurrency(report.packSalesCents ?? 0)} (
+                {report.packSalesCount ?? 0} vend.)
+              </span>
+            )}
           </div>
           <div>
             <span>Total de despesas</span>
@@ -108,6 +114,9 @@ function PeriodicPrintReport({
                 : "atendimentos"}
               {operatorsTipsCents > 0
                 ? ` · Gorjetas: + ${formatCurrency(operatorsTipsCents)}`
+                : ""}
+              {(report.dailyOperatorsExpense.packCommissionCents ?? 0) > 0
+                ? ` · Comissão pacotes: + ${formatCurrency(report.dailyOperatorsExpense.packCommissionCents ?? 0)}`
                 : ""}
             </span>
           </div>
@@ -685,8 +694,18 @@ export function PeriodicManagement({
           <div className="motion-stagger grid min-w-0 grid-cols-1 gap-4 min-[26rem]:grid-cols-2 sm:grid-cols-4">
             <MetricCard
               detail={
-                (report.tipsCents ?? 0) > 0
-                  ? `Serviços: ${formatCurrency(report.grossServicesCents ?? report.grossRevenueCents - report.tipsCents)} · Gorjetas: + ${formatCurrency(report.tipsCents)}`
+                (report.tipsCents ?? 0) > 0 ||
+                (report.packSalesCents ?? 0) > 0
+                  ? [
+                      (report.packSalesCents ?? 0) > 0
+                        ? `Pacotes: ${formatCurrency(report.packSalesCents ?? 0)} (${report.packSalesCount ?? 0} vend.)`
+                        : null,
+                      (report.tipsCents ?? 0) > 0
+                        ? `Gorjetas: + ${formatCurrency(report.tipsCents)}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
                   : undefined
               }
               label="Receita bruta"
@@ -771,6 +790,22 @@ export function PeriodicManagement({
                       )}
                     </>
                   )}
+                  {Boolean(
+                    (report.dailyOperatorsExpense.packCommissionCents ?? 0) > 0,
+                  ) && (
+                    <span className="mt-1 block font-semibold text-[#805d12]">
+                      Inclui comissão de pacotes:{" "}
+                      {formatCurrency(
+                        report.dailyOperatorsExpense.packCommissionCents ?? 0,
+                      )}{" "}
+                      (
+                      {report.dailyOperatorsExpense.packCutsCount ?? 0}{" "}
+                      {(report.dailyOperatorsExpense.packCutsCount ?? 0) === 1
+                        ? "corte"
+                        : "cortes"}
+                      )
+                    </span>
+                  )}
                 </p>
                 <p className="m-0 rounded-lg border border-[#ead9a6] bg-[#fff9e8] px-2.5 py-2 text-xs text-[#805d12]">
                   Valor flexível em atualização diária conforme novos
@@ -826,6 +861,19 @@ export function PeriodicManagement({
                               {formatCurrency(operator.adminShareCents)}
                             </strong>
                           </span>
+                          {Boolean(
+                            (operator.packCommissionCents ?? 0) > 0,
+                          ) && (
+                            <span className="font-semibold text-[#2f6840]">
+                              Comissão pacotes:{" "}
+                              {formatCurrency(
+                                operator.packCommissionCents ?? 0,
+                              )}{" "}
+                              ({operator.packCutsCount ?? 0}{" "}
+                              {operator.packCutsCount === 1 ? "corte" : "cortes"}
+                              )
+                            </span>
+                          )}
                         </div>
                         <div className="mt-0.5 flex items-center justify-between gap-2 border-t border-[#e8eee9] pt-2 text-sm">
                           <span className="font-bold text-[#34443a]">
@@ -895,6 +943,38 @@ export function PeriodicManagement({
                     de dias ainda abertos.
                   </p>
                 )}
+              {Boolean(
+                (report.settlement.packSalesCents ?? 0) > 0 ||
+                  (report.settlement.packCommissionDeductionCents ?? 0) > 0,
+              ) && (
+                <div className="grid gap-1.5 rounded-lg border border-[#dce5dd] bg-[#f5f7f4] p-3 text-xs">
+                  {Boolean((report.settlement.packSalesCents ?? 0) > 0) && (
+                    <div className="flex items-center justify-between text-[#2f6840]">
+                      <span className="font-medium">
+                        Pacotes vendidos no período:
+                      </span>
+                      <strong>
+                        {formatCurrency(report.settlement.packSalesCents ?? 0)}
+                      </strong>
+                    </div>
+                  )}
+                  {Boolean(
+                    (report.settlement.packCommissionDeductionCents ?? 0) > 0,
+                  ) && (
+                    <div className="flex items-center justify-between text-[#8b3d32]">
+                      <span className="font-semibold">
+                        Dedução de comissão de pacotes (operadores):
+                      </span>
+                      <strong>
+                        -{" "}
+                        {formatCurrency(
+                          report.settlement.packCommissionDeductionCents ?? 0,
+                        )}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              )}
               {report.settlement.unidentifiedServiceCount > 0 && (
                 <div className="rounded-lg border border-[#ead9a6] bg-[#fff9e8] p-3 text-sm text-[#805d12]">
                   <strong>

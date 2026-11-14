@@ -6,6 +6,7 @@ import { Login } from "./auth/Login";
 import { ResetPassword } from "./auth/ResetPassword";
 import { AppShell } from "./components/layout/AppShell";
 import { DailyOperation } from "./features/operation/DailyOperation";
+import { ClientsAndPacks } from "./features/clients/ClientsAndPacks";
 import { Management } from "./features/management/Management";
 import { ExpenseManagement } from "./features/management/ExpenseManagement";
 import { PeriodicManagement } from "./features/management/PeriodicManagement";
@@ -19,6 +20,7 @@ export default function App() {
       <Route element={<AuthGuard />}>
         <Route element={<AppShell />}>
           <Route element={<DailyOperation />} path="/" />
+          <Route element={<ClientsAndPacks />} path="/clientes" />
           <Route element={<Management />} path="/gestao" />
           <Route element={<RoleGuard allowedRole="admin" />}>
             <Route element={<ExpenseManagement />} path="/despesas" />

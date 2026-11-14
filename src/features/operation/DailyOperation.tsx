@@ -2,9 +2,12 @@ import { AlertCircle, ArrowLeft, CalendarDays, Scissors } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   createServiceRecord,
+  getClient,
   listServiceTypes,
 } from "../../api/dailyCheckoutApi";
 import type {
+  Client,
+  ClientPackDetail,
   CreateServiceRecordInput,
   PaymentMethod,
   ServiceType,
@@ -18,6 +21,10 @@ import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { Panel } from "../../components/ui/Panel";
 import { getApiErrorMessage } from "../../lib/errors";
 import { formatCurrency, paymentMethodLabel } from "../../lib/formatters";
+import { ClientDetailsModal } from "../clients/ClientDetailsModal";
+import { ClientRegistrationModal } from "../clients/ClientRegistrationModal";
+import { PackPurchaseModal } from "../clients/PackPurchaseModal";
+import { ClientQuickPicker } from "./ClientQuickPicker";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ServiceBadge } from "./ServiceBadge";
 import { ServiceSelector } from "./ServiceSelector";
@@ -43,9 +50,17 @@ export function DailyOperation() {
     useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingPackCut, setSubmittingPackCut] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [newClientInitialName, setNewClientInitialName] = useState("");
+  const [registrationModalOpen, setRegistrationModalOpen] = useState(false);
+  const [purchaseTargetClient, setPurchaseTargetClient] =
+    useState<Client | null>(null);
+  const [historyTargetClient, setHistoryTargetClient] =
+    useState<Client | null>(null);
   const tipInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -136,6 +151,7 @@ export function DailyOperation() {
       const payload: CreateServiceRecordInput = {
         serviceTypeId: selectedService.id,
         paymentMethod,
+        ...(selectedClient ? { clientId: selectedClient.id } : {}),
         ...(includeTip
           ? {
               tipCents: Math.trunc(tipCents),
@@ -152,22 +168,24 @@ export function DailyOperation() {
       const recordedTipCents = createdRecord.tipCents ?? 0;
       const recordedTotalCents =
         createdRecord.totalCents ?? createdRecord.priceCents + recordedTipCents;
+      const clientSuffix = selectedClient ? ` (${selectedClient.name})` : "";
 
       if (role === "daily_operator") {
         setSuccess(
           recordedTipCents > 0
-            ? `${serviceTitle} registrado com sucesso · Minha parte: ${formatCurrency(createdRecord.operatorShareCents)} (Serviço: ${formatCurrency(createdRecord.priceCents)} + Gorjeta: ${formatCurrency(recordedTipCents)}).`
-            : `${serviceTitle} registrado com sucesso · Minha parte (50%): ${formatCurrency(createdRecord.operatorShareCents)} (Bruto: ${formatCurrency(createdRecord.priceCents)}).`,
+            ? `${serviceTitle}${clientSuffix} registrado com sucesso · Minha parte: ${formatCurrency(createdRecord.operatorShareCents)} (Serviço: ${formatCurrency(createdRecord.priceCents)} + Gorjeta: ${formatCurrency(recordedTipCents)}).`
+            : `${serviceTitle}${clientSuffix} registrado com sucesso · Minha parte (50%): ${formatCurrency(createdRecord.operatorShareCents)} (Bruto: ${formatCurrency(createdRecord.priceCents)}).`,
         );
       } else {
         setSuccess(
           recordedTipCents > 0
-            ? `${serviceTitle} registrado com sucesso · Total: ${formatCurrency(recordedTotalCents)} (inclui ${formatCurrency(recordedTipCents)} de gorjeta).`
-            : `${serviceTitle} registrado com sucesso.`,
+            ? `${serviceTitle}${clientSuffix} registrado com sucesso · Total: ${formatCurrency(recordedTotalCents)} (inclui ${formatCurrency(recordedTipCents)} de gorjeta).`
+            : `${serviceTitle}${clientSuffix} registrado com sucesso.`,
         );
       }
 
       resetFormState();
+      setSelectedClient(null);
     } catch (cause: unknown) {
       console.error("Não foi possível registrar o atendimento:", cause);
       setSubmitError(
@@ -175,6 +193,99 @@ export function DailyOperation() {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleRedeemPackCut(options: {
+    tipCents?: number;
+    tipPaymentMethod?: PaymentMethod;
+    notes?: string;
+  }) {
+    if (!selectedClient || submittingPackCut || submitting) return;
+
+    setSubmittingPackCut(true);
+    setSubmitError(null);
+    setSuccess(null);
+    try {
+      const createdRecord = await createServiceRecord({
+        clientId: selectedClient.id,
+        useActivePack: true,
+        ...(options.tipCents && options.tipCents > 0
+          ? {
+              tipCents: options.tipCents,
+              tipPaymentMethod: options.tipPaymentMethod,
+            }
+          : {}),
+        ...(options.notes ? { notes: options.notes } : {}),
+      });
+
+      const summary = createdRecord.packSummary;
+      const operatorSuffix =
+        role === "daily_operator"
+          ? ` · Minha parte: ${formatCurrency(createdRecord.operatorShareCents)} (Ref.: ${formatCurrency(createdRecord.priceCents)})`
+          : " · Valor já recebido na compra do pacote";
+
+      if (summary?.needsRenewal || summary?.remainingCuts === 0) {
+        setSuccess(
+          `Último corte do pacote utilizado para ${selectedClient.name}! Cliente precisa renovar.${operatorSuffix}`,
+        );
+      } else if (summary) {
+        setSuccess(
+          `Corte registrado! Restam ${summary.remainingCuts} de ${summary.totalCuts} cortes no pacote de ${selectedClient.name}.${operatorSuffix}`,
+        );
+      } else {
+        setSuccess(
+          `Corte do pacote registrado para ${selectedClient.name}!${operatorSuffix}`,
+        );
+      }
+
+      try {
+        const refreshed = await getClient(selectedClient.id);
+        setSelectedClient(refreshed);
+      } catch {
+        if (summary && selectedClient.activePack) {
+          setSelectedClient({
+            ...selectedClient,
+            activePack: {
+              ...selectedClient.activePack,
+              ...summary,
+            },
+          });
+        }
+      }
+    } catch (cause: unknown) {
+      console.error("Não foi possível registrar o corte do pacote:", cause);
+      setSubmitError(
+        getApiErrorMessage(
+          cause,
+          "Não foi possível registrar o corte do pacote.",
+        ),
+      );
+    } finally {
+      setSubmittingPackCut(false);
+    }
+  }
+
+  function handleClientCreated(client: Client) {
+    setRegistrationModalOpen(false);
+    setSelectedClient(client);
+    setSuccess(`Cliente ${client.name} cadastrado e selecionado.`);
+  }
+
+  function handlePackPurchased(
+    updatedClient: Client,
+    createdPack: ClientPackDetail,
+  ) {
+    setPurchaseTargetClient(null);
+    setSelectedClient(updatedClient);
+    if ((createdPack.usedCuts ?? 0) > 0) {
+      setSuccess(
+        `Pacote "${createdPack.planName}" ativado e 1º corte registrado para ${updatedClient.name}! Restam ${createdPack.remainingCuts} cortes disponíveis.`,
+      );
+    } else {
+      setSuccess(
+        `Pacote "${createdPack.planName}" ativado para ${updatedClient.name} (${createdPack.remainingCuts} cortes disponíveis).`,
+      );
     }
   }
 
@@ -222,9 +333,46 @@ export function DailyOperation() {
         </EmptyState>
       )}
       {!loading && !loadError && services.length > 0 && (
-        <div className="mx-auto w-full max-w-[42rem]">
+        <div className="mx-auto grid w-full max-w-[42rem] gap-5">
+          {success && (
+            <FeedbackMessage
+              message={success}
+              onClose={() => setSuccess(null)}
+            />
+          )}
+
+          {submitError && !selectedService && (
+            <FeedbackMessage
+              message={submitError}
+              onClose={() => setSubmitError(null)}
+              variant="error"
+            />
+          )}
+
+          <ClientQuickPicker
+            hasSelectedStandaloneService={Boolean(selectedService)}
+            onOpenHistory={(client) => setHistoryTargetClient(client)}
+            onOpenNewClient={(initialName = "") => {
+              setNewClientInitialName(initialName);
+              setRegistrationModalOpen(true);
+            }}
+            onOpenPurchasePack={(client) => setPurchaseTargetClient(client)}
+            onRedeemPackCut={handleRedeemPackCut}
+            onSelectClient={(client) => {
+              setSelectedClient(client);
+              setSubmitError(null);
+            }}
+            selectedClient={selectedClient}
+            submittingPackCut={submittingPackCut}
+          />
+
           {!selectedService ? (
-            <div className="motion-content">
+            <div className="motion-content grid gap-2.5">
+              <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+                {selectedClient
+                  ? `Ou selecione um serviço avulso para ${selectedClient.name}`
+                  : "Registrar serviço avulso"}
+              </p>
               <ServiceSelector onSelect={chooseService} services={services} />
             </div>
           ) : (
@@ -425,8 +573,38 @@ export function DailyOperation() {
           )}
         </div>
       )}
-      {success && (
-        <FeedbackMessage message={success} onClose={() => setSuccess(null)} />
+
+      {registrationModalOpen && (
+        <ClientRegistrationModal
+          initialName={newClientInitialName}
+          onClose={() => setRegistrationModalOpen(false)}
+          onSaved={handleClientCreated}
+        />
+      )}
+
+      {purchaseTargetClient && (
+        <PackPurchaseModal
+          client={purchaseTargetClient}
+          onClose={() => setPurchaseTargetClient(null)}
+          onPurchased={handlePackPurchased}
+        />
+      )}
+
+      {historyTargetClient && (
+        <ClientDetailsModal
+          client={historyTargetClient}
+          key={historyTargetClient.id}
+          onClientUpdated={(updated) => {
+            setSelectedClient((current) =>
+              current && current.id === updated.id ? updated : current,
+            );
+            setHistoryTargetClient((current) =>
+              current && current.id === updated.id ? updated : current,
+            );
+          }}
+          onClose={() => setHistoryTargetClient(null)}
+          onRequestRenew={(client) => setPurchaseTargetClient(client)}
+        />
       )}
     </section>
   );

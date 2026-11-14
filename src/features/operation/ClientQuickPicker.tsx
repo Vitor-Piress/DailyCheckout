@@ -1,0 +1,500 @@
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardCheck,
+  PackagePlus,
+  Scissors,
+  Search,
+  UserCheck,
+  UserPlus,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { listClients } from "../../api/dailyCheckoutApi";
+import type { Client, PaymentMethod } from "../../api/types";
+import { Button } from "../../components/ui/Button";
+import { CurrencyInput } from "../../components/ui/CurrencyInput";
+import { Panel } from "../../components/ui/Panel";
+import { formatCurrency, formatPhone } from "../../lib/formatters";
+import { PaymentMethodSelector } from "./PaymentMethodSelector";
+
+const MIN_TIP_CENTS = 1;
+const MAX_TIP_CENTS = 50_000;
+
+export function ClientQuickPicker({
+  selectedClient,
+  onSelectClient,
+  onOpenNewClient,
+  onOpenPurchasePack,
+  onOpenHistory,
+  onRedeemPackCut,
+  submittingPackCut,
+  hasSelectedStandaloneService,
+}: {
+  selectedClient: Client | null;
+  onSelectClient: (client: Client | null) => void;
+  onOpenNewClient: (initialName?: string) => void;
+  onOpenPurchasePack: (client: Client) => void;
+  onOpenHistory: (client: Client) => void;
+  onRedeemPackCut: (options: {
+    tipCents?: number;
+    tipPaymentMethod?: PaymentMethod;
+    notes?: string;
+  }) => Promise<void>;
+  submittingPackCut: boolean;
+  hasSelectedStandaloneService: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [results, setResults] = useState<Client[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const [includeTip, setIncludeTip] = useState(false);
+  const [tipCents, setTipCents] = useState(0);
+  const [tipTouched, setTipTouched] = useState(false);
+  const [tipPaymentMethod, setTipPaymentMethod] =
+    useState<PaymentMethod>("pix");
+  const [notes, setNotes] = useState("");
+  const tipInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const nextQuery = query.trim();
+      setSearching(true);
+      setDebouncedQuery(nextQuery);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (!isDropdownOpen && !debouncedQuery) {
+      return;
+    }
+    let active = true;
+    void listClients({
+      q: debouncedQuery || undefined,
+      limit: 8,
+      offset: 0,
+    })
+      .then((res) => {
+        if (active) {
+          setResults(res.items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setResults([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setSearching(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedQuery, isDropdownOpen]);
+
+  function resetPackCutInputs() {
+    setIncludeTip(false);
+    setTipCents(0);
+    setTipTouched(false);
+    setTipPaymentMethod("pix");
+    setNotes("");
+  }
+
+  function handleChooseClient(client: Client) {
+    onSelectClient(client);
+    setQuery("");
+    setIsDropdownOpen(false);
+    resetPackCutInputs();
+  }
+
+  function handleClearClient() {
+    onSelectClient(null);
+    resetPackCutInputs();
+  }
+
+  function handleTogglePackTip(checked: boolean) {
+    setIncludeTip(checked);
+    if (!checked) {
+      setTipCents(0);
+      setTipTouched(false);
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      tipInputRef.current?.focus();
+    });
+  }
+
+  const tipExceedsMax = includeTip && tipCents > MAX_TIP_CENTS;
+  const tipBelowMin = includeTip && tipCents < MIN_TIP_CENTS;
+  const isPackTipValid =
+    !includeTip || (tipCents >= MIN_TIP_CENTS && tipCents <= MAX_TIP_CENTS);
+
+  async function handleConfirmPackCut() {
+    if (!selectedClient || submittingPackCut) return;
+    if (includeTip) {
+      setTipTouched(true);
+      if (!isPackTipValid) return;
+    }
+    await onRedeemPackCut({
+      ...(includeTip && tipCents > 0
+        ? { tipCents: Math.trunc(tipCents), tipPaymentMethod }
+        : {}),
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+    });
+    resetPackCutInputs();
+  }
+
+  if (!selectedClient) {
+    return (
+      <Panel className="grid gap-3 !p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+              Pacote Mensal ou Cliente
+            </p>
+            <h2 className="m-0 text-base font-bold text-[#17211b]">
+              Usar Pacote Mensal / Vincular Cliente
+            </h2>
+          </div>
+          <Button
+            className="!min-h-9 flex items-center gap-1.5 px-3 py-1.5 text-xs"
+            onClick={() =>
+              onOpenNewClient(
+                query.trim() && !/\d/.test(query.trim()) ? query.trim() : "",
+              )
+            }
+            type="button"
+            variant="secondary"
+          >
+            <UserPlus size={15} />
+            <span>Novo Cliente</span>
+          </Button>
+        </div>
+
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[#4a7957]"
+            size={19}
+          />
+          <input
+            aria-label="Buscar cliente para usar pacote ou vincular atendimento"
+            className="min-h-12 w-full rounded-xl border border-[#c8d6ca] bg-[#f5f7f4] pr-10 pl-10 text-base text-[#17211b] placeholder:text-[#617067] focus:bg-white focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSearching(true);
+              setIsDropdownOpen(true);
+            }}
+            onFocus={() => {
+              if (!isDropdownOpen) {
+                setSearching(true);
+                setIsDropdownOpen(true);
+              }
+            }}
+            placeholder="Nome, telefone ou CPF do cliente..."
+            type="search"
+            value={query}
+          />
+          {(query || isDropdownOpen) && (
+            <button
+              aria-label="Fechar busca de cliente"
+              className="absolute top-1/2 right-2.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#617067] hover:bg-[#dce5dd]"
+              onClick={() => {
+                setQuery("");
+                setIsDropdownOpen(false);
+              }}
+              type="button"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {isDropdownOpen && (
+          <div className="motion-content grid gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-2.5">
+            {searching ? (
+              <p className="m-0 px-2 py-2 text-xs font-medium text-[#617067]">
+                Buscando clientes...
+              </p>
+            ) : results.length === 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5">
+                <span className="text-xs text-[#617067]">
+                  Nenhum cliente encontrado.
+                </span>
+                <button
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#2f6840] px-3 py-1.5 text-xs font-bold text-white"
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    onOpenNewClient(
+                      query.trim() && !/\d/.test(query.trim())
+                        ? query.trim()
+                        : "",
+                    );
+                  }}
+                  type="button"
+                >
+                  <UserPlus size={14} />
+                  <span>Cadastrar agora</span>
+                </button>
+              </div>
+            ) : (
+              <ul className="m-0 grid list-none gap-1.5 p-0">
+                {results.map((client) => {
+                  const pack = client.activePack;
+                  const isActive =
+                    pack?.status === "active" && pack.remainingCuts > 0;
+                  const isExhausted =
+                    pack?.status === "exhausted" ||
+                    pack?.needsRenewal === true ||
+                    (pack !== null && pack.remainingCuts <= 0);
+
+                  return (
+                    <li key={client.id}>
+                      <button
+                        className="flex min-h-12 w-full items-center justify-between gap-2 rounded-xl border border-[#dce5dd] bg-white px-3.5 py-2.5 text-left transition hover:border-[#2f6840] hover:bg-[#e8f2ea] active:scale-[0.99]"
+                        onClick={() => handleChooseClient(client)}
+                        type="button"
+                      >
+                        <div className="min-w-0">
+                          <strong className="block truncate text-sm text-[#17211b]">
+                            {client.name}
+                          </strong>
+                          <small className="text-xs text-[#617067]">
+                            {formatPhone(client.phone)}
+                          </small>
+                        </div>
+
+                        {isActive && pack ? (
+                          <span className="shrink-0 rounded-full border border-[#9fc2a7] bg-[#e8f2ea] px-2.5 py-1 text-xs font-extrabold text-[#245c35]">
+                            Pacote • Restam {pack.remainingCuts}/{pack.totalCuts}
+                          </span>
+                        ) : isExhausted ? (
+                          <span className="shrink-0 rounded-full border border-[#ead9a6] bg-[#fff4d6] px-2.5 py-1 text-xs font-bold text-[#805d12]">
+                            Esgotado • Renovar
+                          </span>
+                        ) : (
+                          <span className="shrink-0 rounded-full bg-[#f5f7f4] px-2.5 py-1 text-xs font-medium text-[#617067]">
+                            Avulso
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </Panel>
+    );
+  }
+
+  const activePack = selectedClient.activePack;
+  const hasActivePack =
+    activePack?.status === "active" && activePack.remainingCuts > 0;
+  const isExhausted =
+    activePack?.status === "exhausted" ||
+    activePack?.needsRenewal === true ||
+    (activePack !== null && activePack.remainingCuts <= 0);
+
+  return (
+    <Panel
+      className={`motion-content grid gap-3.5 !p-4 ${
+        hasActivePack
+          ? "border-2 border-[#2f6840]"
+          : isExhausted
+            ? "border-2 border-[#c18b20]"
+            : ""
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
+            <UserCheck size={20} />
+          </div>
+          <div>
+            <span className="block text-xs font-bold uppercase tracking-[0.06em] text-[#4a7957]">
+              Cliente selecionado
+            </span>
+            <strong className="text-lg leading-tight text-[#17211b]">
+              {selectedClient.name}
+            </strong>
+            <span className="ml-2 text-xs font-medium text-[#617067]">
+              {formatPhone(selectedClient.phone)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[#dce5dd] bg-[#f5f7f4] px-2.5 py-1.5 text-xs font-bold text-[#2f6840] hover:bg-[#e8f2ea]"
+            onClick={() => onOpenHistory(selectedClient)}
+            type="button"
+          >
+            <ClipboardCheck size={14} />
+            <span>Histórico</span>
+          </button>
+          <button
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[#dce5dd] bg-white px-2.5 py-1.5 text-xs font-bold text-[#617067] hover:bg-[#f5f7f4]"
+            onClick={handleClearClient}
+            type="button"
+          >
+            <X size={15} />
+            <span>Trocar</span>
+          </button>
+        </div>
+      </div>
+
+      {hasActivePack && activePack && (
+        <div className="grid gap-3 rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#245c35]">
+              <CheckCircle2 size={18} />
+              <span>
+                {activePack.planName} • Restam {activePack.remainingCuts} de{" "}
+                {activePack.totalCuts} cortes
+              </span>
+            </span>
+            <span className="rounded-full bg-[#2f6840] px-2.5 py-0.5 text-xs font-bold text-white">
+              {activePack.usedCuts}/{activePack.totalCuts} utilizados
+            </span>
+          </div>
+
+          {!hasSelectedStandaloneService && (
+            <div className="grid gap-3 border-t border-[#bfe0c6] pt-3">
+              <label
+                className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[0.65rem] border p-2.5 text-sm font-bold text-[#34443a] transition ${
+                  includeTip
+                    ? "border-[#2f6840] bg-white"
+                    : "border-[#9fc2a7] bg-white/80"
+                }`}
+              >
+                <input
+                  checked={includeTip}
+                  className="h-4 w-4 accent-[#2f6840]"
+                  onChange={(event) => handleTogglePackTip(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>Incluir gorjeta neste corte do pacote</span>
+              </label>
+
+              {includeTip && (
+                <div className="motion-content grid gap-3 rounded-xl border border-[#c8d6ca] bg-white p-3">
+                  <label className="grid gap-1 text-sm font-bold text-[#34443a]">
+                    Valor da gorjeta
+                    <CurrencyInput
+                      aria-invalid={
+                        tipExceedsMax || (tipTouched && tipBelowMin)
+                      }
+                      className="min-h-12 w-full rounded-[0.6rem] border border-[#c8d6ca] bg-white px-3.5 py-2 text-lg font-bold tracking-tight text-[#23372a]"
+                      maxDigits={7}
+                      onChangeCents={(nextCents) => {
+                        setTipCents(nextCents);
+                        setTipTouched(true);
+                      }}
+                      ref={tipInputRef}
+                      valueCents={tipCents}
+                    />
+                    {tipExceedsMax ? (
+                      <span className="text-xs font-medium text-[#a83e3e]">
+                        O valor máximo permitido para gorjeta é R$ 500,00.
+                      </span>
+                    ) : tipTouched && tipBelowMin ? (
+                      <span className="text-xs font-medium text-[#a83e3e]">
+                        Informe pelo menos R$ 0,01 de gorjeta.
+                      </span>
+                    ) : (
+                      <span className="text-xs font-normal text-[#617067]">
+                        Gorjeta de {formatCurrency(tipCents)} (100% operador).
+                      </span>
+                    )}
+                  </label>
+
+                  <PaymentMethodSelector
+                    legend="Forma de pagamento da gorjeta"
+                    name="quick-pack-tip-method"
+                    onChange={setTipPaymentMethod}
+                    value={tipPaymentMethod}
+                  />
+                </div>
+              )}
+
+              <input
+                className="min-h-11 w-full rounded-[0.6rem] border border-[#9fc2a7] bg-white px-3 py-2 text-sm text-[#23372a] placeholder:text-[#617067] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+                maxLength={250}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Observações do corte (opcional)..."
+                type="text"
+                value={notes}
+              />
+
+              <Button
+                className="flex min-h-13 w-full items-center justify-center gap-2 text-base shadow-md"
+                disabled={submittingPackCut || !isPackTipValid}
+                onClick={() => void handleConfirmPackCut()}
+                type="button"
+              >
+                <Scissors size={20} />
+                <span>
+                  {submittingPackCut
+                    ? "Registrando corte do pacote..."
+                    : "Registrar Corte do Pacote"}
+                </span>
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isExhausted && activePack && (
+        <div className="grid gap-3 rounded-xl border border-[#ead9a6] bg-[#fff4d6] p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#805d12]">
+              <AlertTriangle size={18} />
+              <span>Pacote esgotado (0 cortes restantes)</span>
+            </span>
+            <span className="rounded-full bg-[#805d12] px-2.5 py-0.5 text-xs font-bold text-white">
+              {activePack.planName}
+            </span>
+          </div>
+          <p className="m-0 text-xs text-[#6e4f0e]">
+            Todos os {activePack.totalCuts} cortes do pacote anterior já foram
+            utilizados. Renove em 1 passo ou lance um serviço avulso abaixo.
+          </p>
+          <Button
+            className="flex w-full items-center justify-center gap-2"
+            onClick={() => onOpenPurchasePack(selectedClient)}
+            type="button"
+          >
+            <PackagePlus size={18} />
+            <span>Renovar Pacote</span>
+          </Button>
+        </div>
+      )}
+
+      {!activePack && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3.5 py-2.5">
+          <span className="text-xs text-[#617067]">
+            Cliente sem pacote mensal ativo. Selecione um serviço abaixo ou
+            venda um pacote.
+          </span>
+          <Button
+            className="!min-h-9 flex items-center gap-1.5 px-3 py-1.5 text-xs"
+            onClick={() => onOpenPurchasePack(selectedClient)}
+            type="button"
+            variant="secondary"
+          >
+            <PackagePlus size={15} />
+            <span>Vender Pacote</span>
+          </Button>
+        </div>
+      )}
+    </Panel>
+  );
+}

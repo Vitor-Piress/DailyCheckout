@@ -1,6 +1,14 @@
-import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  PackageCheck,
+  RotateCcw,
+  User,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  cancelServiceRecord,
   closeDailySettlement,
   getDailyReport,
   listServiceRecords,
@@ -10,6 +18,7 @@ import { ApiError } from "../../api/client";
 import type { DailyReport, ServiceRecord, ServiceType } from "../../api/types";
 import { ReportList } from "../../components/reports/ReportList";
 import { UserReportGroups } from "../../components/reports/UserReportGroups";
+import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { MetricCard } from "../../components/ui/MetricCard";
@@ -45,12 +54,21 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   const [settlementMessage, setSettlementMessage] = useState<string | null>(
     null,
   );
+  const [cancelingRecordId, setCancelingRecordId] = useState<string | null>(
+    null,
+  );
+  const [recordActionMessage, setRecordActionMessage] = useState<string | null>(
+    null,
+  );
+  const [recordActionError, setRecordActionError] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([
-      role === "admin" ? Promise.resolve([]) : listServiceRecords(date),
+      listServiceRecords(date),
       getDailyReport(date),
       listServiceTypes(),
     ])
@@ -150,6 +168,22 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                 ?.unidentifiedServiceCount ??
               calculatedSettlement.unidentifiedServiceCount)
             : calculatedSettlement.unidentifiedServiceCount,
+        packSalesCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement?.packSalesCents ??
+              calculatedSettlement.packSalesCents ??
+              report.packSalesCents ??
+              0)
+            : (calculatedSettlement.packSalesCents ??
+              report.packSalesCents ??
+              0),
+        packCommissionDeductionCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement
+                ?.packCommissionDeductionCents ??
+              calculatedSettlement.packCommissionDeductionCents ??
+              0)
+            : (calculatedSettlement.packCommissionDeductionCents ?? 0),
         current: calculatedSettlement,
       }
     : null;
@@ -237,6 +271,53 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       }
     } finally {
       setSettlementSubmitting(false);
+    }
+  }
+
+  async function handleCancelServiceRecord(record: ServiceRecord) {
+    if (cancelingRecordId) return;
+
+    const isPackCut = Boolean(record.clientPackId);
+    const confirmed = window.confirm(
+      `Confirma o cancelamento do atendimento "${record.serviceName || "Serviço"}"${
+        record.clientName ? ` (${record.clientName})` : ""
+      }?\n\n${
+        isPackCut
+          ? "Este atendimento foi realizado pelo Pacote Mensal. Ao cancelar, 1 corte será devolvido automaticamente ao saldo do pacote do cliente."
+          : "O atendimento será cancelado e desconsiderado nos relatórios."
+      }`,
+    );
+    if (!confirmed) return;
+
+    setCancelingRecordId(record.id);
+    setRecordActionError(null);
+    setRecordActionMessage(null);
+    try {
+      await cancelServiceRecord(
+        record.id,
+        "Cancelado na tela de gestão diária",
+        record.clientId ?? undefined,
+      );
+      const [updatedRecords, updatedReport] = await Promise.all([
+        listServiceRecords(date),
+        getDailyReport(date),
+      ]);
+      setRecords(updatedRecords);
+      setReport(updatedReport);
+      setRecordActionMessage(
+        isPackCut
+          ? `Atendimento cancelado e 1 corte devolvido ao pacote${record.clientName ? ` de ${record.clientName}` : ""}.`
+          : "Atendimento cancelado com sucesso.",
+      );
+    } catch (cause: unknown) {
+      setRecordActionError(
+        getApiErrorMessage(
+          cause,
+          "Não foi possível cancelar o atendimento selecionado.",
+        ),
+      );
+    } finally {
+      setCancelingRecordId(null);
     }
   }
 
@@ -364,6 +445,28 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                   </>
                 )}
               </div>
+              {Boolean((report.operatorShare.packCutsCount ?? 0) > 0) && (
+                <div className="grid gap-1 rounded-[0.8rem] border border-[#9fc2a7] bg-[#e8f2ea] p-3.5 text-xs text-[#2f6840]">
+                  <span className="font-bold">
+                    Cortes de Pacote: {report.operatorShare.packCutsCount}{" "}
+                    {report.operatorShare.packCutsCount === 1
+                      ? "corte"
+                      : "cortes"}
+                  </span>
+                  <span>
+                    Valor de referência:{" "}
+                    {formatCurrency(
+                      report.operatorShare.packCutsReferenceCents ?? 0,
+                    )}{" "}
+                    · Comissão operador (50%):{" "}
+                    <strong>
+                      {formatCurrency(
+                        report.operatorShare.packCommissionCents ?? 0,
+                      )}
+                    </strong>
+                  </span>
+                </div>
+              )}
             </Panel>
           ) : (
             <div
@@ -373,8 +476,18 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               <MetricCard label="Atendimentos" value={report.serviceCount} />
               <MetricCard
                 detail={
-                  (report.tipsCents ?? 0) > 0
-                    ? `Serviços: ${formatCurrency(report.grossServicesCents ?? report.grossRevenueCents - report.tipsCents)} · Gorjetas: + ${formatCurrency(report.tipsCents)}`
+                  (report.tipsCents ?? 0) > 0 ||
+                  (report.packSalesCents ?? 0) > 0
+                    ? [
+                        (report.packSalesCents ?? 0) > 0
+                          ? `Pacotes: ${formatCurrency(report.packSalesCents ?? 0)} (${report.packSalesCount ?? 0} vend.)`
+                          : null,
+                        (report.tipsCents ?? 0) > 0
+                          ? `Gorjetas: + ${formatCurrency(report.tipsCents)}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
                     : undefined
                 }
                 label="Receita bruta"
@@ -449,9 +562,11 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                     />
                     <MetricCard
                       detail={
-                        (displayedSettlement.admin.tipsCents ?? 0) > 0
-                          ? `Inclui ${formatCurrency(displayedSettlement.admin.tipsCents)} de gorjetas`
-                          : undefined
+                        displayedSettlement.admin.totalDueCents < 0
+                          ? "Saldo a cobrir (repasse aos operadores)"
+                          : (displayedSettlement.admin.tipsCents ?? 0) > 0
+                            ? `Inclui ${formatCurrency(displayedSettlement.admin.tipsCents)} de gorjetas`
+                            : undefined
                       }
                       label="Total líquido ao administrador"
                       value={formatCurrency(
@@ -470,6 +585,46 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                       )}
                     />
                   </div>
+                  {(() => {
+                    const packSalesCents =
+                      displayedSettlement.packSalesCents ??
+                      report?.packSalesCents ??
+                      0;
+                    const packCommissionDeductionCents =
+                      displayedSettlement.packCommissionDeductionCents ?? 0;
+
+                    if (
+                      packSalesCents <= 0 &&
+                      packCommissionDeductionCents <= 0
+                    ) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="mt-3 grid gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3 text-xs">
+                        {packSalesCents > 0 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[#2f6840]">
+                            <span className="font-medium">
+                              Pacotes vendidos hoje:
+                            </span>
+                            <strong className="text-sm">
+                              {formatCurrency(packSalesCents)}
+                            </strong>
+                          </div>
+                        )}
+                        {packCommissionDeductionCents > 0 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f2c2bb] bg-[#fff1ef] p-2 text-[#8b3d32]">
+                            <span className="font-bold">
+                              Repasse de cortes de pacote (operadores):
+                            </span>
+                            <strong className="text-sm font-extrabold">
+                              - {formatCurrency(packCommissionDeductionCents)}
+                            </strong>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {(displayedSettlement.tipsCents > 0 ||
                     (displayedSettlement.admin.tipsCents ?? 0) > 0 ||
                     displayedSettlement.dailyOperatorsTipsCents > 0) && (
@@ -586,6 +741,19 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                                   {formatCurrency(operatorTipsCents)}
                                 </span>
                               )}
+                              {Boolean(
+                                (operator.packCommissionCents ?? 0) > 0,
+                              ) && (
+                                <span className="text-sm font-semibold text-[#2f6840]">
+                                  Comissão cortes de pacote: +{" "}
+                                  {formatCurrency(
+                                    operator.packCommissionCents ?? 0,
+                                  )}
+                                  {operator.packCutsCount
+                                    ? ` (${operator.packCutsCount} corte${operator.packCutsCount === 1 ? "" : "s"})`
+                                    : ""}
+                                </span>
+                              )}
                               <span className="text-sm text-[#617067]">
                                 Parte do operador:{" "}
                                 {formatCurrency(operator.operatorShareCents)}
@@ -638,82 +806,185 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               )}
             </Panel>
           )}
-          {role !== "admin" && (
-            <Panel>
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                    Atendimentos realizados
-                  </p>
-                  <h2 className="m-0 text-base leading-tight">
-                    Registros do dia
-                  </h2>
-                </div>
-                <ClipboardList className="text-[#4a7957]" size={24} />
-              </div>
-              {records.length === 0 ? (
-                <p className="m-0 text-[#617067]">
-                  Nenhum atendimento nesta data.
+          <Panel>
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+                  Atendimentos realizados
                 </p>
-              ) : (
-                <ul className="m-0 grid list-none gap-2.5 p-0">
-                  {records.map((record) => {
-                    const tipCents = record.tipCents ?? 0;
-                    const totalCents =
-                      record.totalCents ?? record.priceCents + tipCents;
-                    const tipWithDifferentMethod =
-                      tipCents > 0 &&
-                      record.tipPaymentMethod &&
-                      record.tipPaymentMethod !== record.paymentMethod
-                        ? record.tipPaymentMethod
-                        : null;
+                <h2 className="m-0 text-base leading-tight">
+                  Registros do dia
+                </h2>
+              </div>
+              <ClipboardList className="text-[#4a7957]" size={24} />
+            </div>
 
-                    return (
-                      <li
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3 text-[#34443a]"
-                        key={record.id}
-                      >
-                        <span className="grid min-w-0 gap-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <strong>{record.serviceName || "Serviço"}</strong>
-                            {tipCents > 0 && (
-                              <span className="inline-flex items-center rounded-md border border-[#cfe0d3] bg-white px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                                + {formatCurrency(tipCents)} gorjeta
-                                {tipWithDifferentMethod
-                                  ? ` (${paymentMethodLabel(tipWithDifferentMethod)})`
-                                  : ""}
-                              </span>
-                            )}
-                          </span>
-                          <small className="text-xs text-[#617067]">
-                            {paymentMethodLabel(record.paymentMethod)}
-                            {record.createdBy
-                              ? ` · Lançado por: ${record.createdBy.name}`
-                              : ""}
-                          </small>
+            {recordActionMessage && (
+              <div className="mb-3">
+                <FeedbackMessage
+                  message={recordActionMessage}
+                  onClose={() => setRecordActionMessage(null)}
+                />
+              </div>
+            )}
+
+            {recordActionError && (
+              <div className="mb-3">
+                <FeedbackMessage
+                  message={recordActionError}
+                  onClose={() => setRecordActionError(null)}
+                  variant="error"
+                />
+              </div>
+            )}
+
+            {records.length === 0 ? (
+              <p className="m-0 text-[#617067]">
+                Nenhum atendimento nesta data.
+              </p>
+            ) : (
+              <ul className="m-0 grid list-none gap-2.5 p-0">
+                {records.map((record) => {
+                  const tipCents = record.tipCents ?? 0;
+                  const totalCents =
+                    record.totalCents ?? record.priceCents + tipCents;
+                  const tipWithDifferentMethod =
+                    tipCents > 0 &&
+                    record.tipPaymentMethod &&
+                    record.tipPaymentMethod !== record.paymentMethod
+                      ? record.tipPaymentMethod
+                      : null;
+                  const isCanceling = cancelingRecordId === record.id;
+
+                  return (
+                    <li
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3.5 text-[#34443a]"
+                      key={record.id}
+                    >
+                      <span className="grid min-w-0 gap-1.5">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <strong>{record.serviceName || "Serviço"}</strong>
+                          {record.clientName && (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-[#c8d6ca] bg-white px-2 py-0.5 text-xs font-bold text-[#23372a]">
+                              <User className="text-[#4a7957]" size={12} />
+                              {record.clientName}
+                            </span>
+                          )}
+                          {record.clientPackId && (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                              <PackageCheck size={12} />
+                              Corte de Pacote
+                            </span>
+                          )}
+                          {tipCents > 0 && (
+                            <span className="inline-flex items-center rounded-md border border-[#cfe0d3] bg-white px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                              + {formatCurrency(tipCents)} gorjeta
+                              {tipWithDifferentMethod
+                                ? ` (${paymentMethodLabel(tipWithDifferentMethod)})`
+                                : ""}
+                            </span>
+                          )}
                         </span>
-                        <div className="grid shrink-0 justify-items-end gap-1 text-right">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                            {tipCents > 0
-                              ? "Minha parte:"
-                              : "Minha parte (50%):"}{" "}
-                            <strong className="text-sm">
-                              {formatCurrency(record.operatorShareCents)}
-                            </strong>
-                          </span>
+                        <small className="text-xs text-[#617067]">
+                          {paymentMethodLabel(record.paymentMethod)}
+                          {record.createdBy
+                            ? ` · Lançado por: ${record.createdBy.name}`
+                            : ""}
+                          {record.occurredAt
+                            ? ` · ${formatDateTime(record.occurredAt)}`
+                            : ""}
+                        </small>
+                        {record.notes && (
                           <small className="text-xs text-[#617067]">
-                            {tipCents > 0
-                              ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
-                              : `Valor bruto: ${formatCurrency(record.priceCents)}`}
+                            Obs.: {record.notes}
                           </small>
+                        )}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="grid shrink-0 justify-items-end gap-1 text-right">
+                          {record.clientPackId ? (
+                            role === "admin" ? (
+                              <>
+                                <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-semibold text-[#2f6840]">
+                                  Valor já recebido na compra do pacote
+                                </span>
+                                {record.operatorShareCents > 0 && (
+                                  <small className="text-xs font-bold text-[#805d12]">
+                                    Repasse operador:{" "}
+                                    {formatCurrency(record.operatorShareCents)}
+                                  </small>
+                                )}
+                                {tipCents > 0 &&
+                                  record.operatorShareCents === 0 && (
+                                    <small className="text-xs text-[#2f6840]">
+                                      Gorjeta admin: +{" "}
+                                      {formatCurrency(tipCents)}
+                                    </small>
+                                  )}
+                              </>
+                            ) : (
+                              <>
+                                <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                                  Sua parte:{" "}
+                                  <strong className="text-sm">
+                                    {formatCurrency(record.operatorShareCents)}
+                                  </strong>
+                                </span>
+                                <small className="text-xs text-[#617067]">
+                                  Ref.: {formatCurrency(record.priceCents)}
+                                  {tipCents > 0
+                                    ? ` (inclui ${formatCurrency(tipCents)} gorjeta)`
+                                    : ""}
+                                </small>
+                              </>
+                            )
+                          ) : (
+                            <>
+                              <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                                {role === "admin"
+                                  ? "Total:"
+                                  : tipCents > 0
+                                    ? "Minha parte:"
+                                    : "Minha parte (50%):"}{" "}
+                                <strong className="text-sm">
+                                  {formatCurrency(
+                                    role === "admin"
+                                      ? totalCents
+                                      : record.operatorShareCents,
+                                  )}
+                                </strong>
+                              </span>
+                              <small className="text-xs text-[#617067]">
+                                {tipCents > 0
+                                  ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
+                                  : `Valor bruto: ${formatCurrency(record.priceCents)}`}
+                              </small>
+                            </>
+                          )}
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Panel>
-          )}
+                        <Button
+                          aria-label={`Cancelar atendimento ${record.serviceName || "Serviço"}`}
+                          className="!min-h-9 flex items-center gap-1 px-2.5 py-1.5 text-xs"
+                          disabled={Boolean(cancelingRecordId)}
+                          onClick={() =>
+                            void handleCancelServiceRecord(record)
+                          }
+                          title="Cancelar atendimento"
+                          type="button"
+                          variant="danger"
+                        >
+                          <RotateCcw size={13} />
+                          <span>
+                            {isCanceling ? "Cancelando..." : "Cancelar"}
+                          </span>
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
         </>
       )}
     </div>

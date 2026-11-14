@@ -107,3 +107,89 @@ export function paymentMethodLabel(
       ?.label ?? paymentMethod
   );
 }
+
+export function formatPhone(rawPhone: string | null | undefined): string {
+  if (!rawPhone) return "";
+  const digits = rawPhone.replace(/\D/g, "");
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return rawPhone;
+}
+
+export function maskPhoneInput(rawValue: string): string {
+  const digits = rawValue.replace(/\D/g, "").slice(0, 11);
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+}
+
+export function formatCpf(rawCpf: string | null | undefined): string {
+  if (!rawCpf) return "";
+  const digits = rawCpf.replace(/\D/g, "");
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+  }
+  return rawCpf;
+}
+
+export function maskCpfInput(rawValue: string): string {
+  const digits = rawValue.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  }
+  if (digits.length <= 9) {
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  }
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+}
+
+export function formatDateTimeSaoPaulo(isoString: string): string {
+  try {
+    const parsed = new Date(isoString);
+    if (Number.isNaN(parsed.getTime())) {
+      return isoString;
+    }
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    }).format(parsed);
+  } catch {
+    return isoString;
+  }
+}
+
+export function formatDayMonthSaoPaulo(
+  isoString: string | null | undefined,
+): string {
+  if (!isoString) {
+    return "Nunca";
+  }
+  try {
+    const parsed = new Date(isoString);
+    if (Number.isNaN(parsed.getTime())) {
+      return "—";
+    }
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    }).format(parsed);
+  } catch {
+    return "—";
+  }
+}
