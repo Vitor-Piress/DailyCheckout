@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { ModalOverlay } from "../../components/ui/ModalOverlay";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import { LoyaltyRedeemFields } from "./LoyaltyRedeemFields";
 import { getClientLoyalty, getOptionalTipError } from "./loyaltyUtils";
@@ -174,6 +175,11 @@ export function LoyaltyRedeemModal({
               tipTouched={tipTouched}
             />
           </div>
+
+          <InlineMutationProgress
+            active={submitting}
+            label="Resgatando corte fidelidade..."
+          />
 
           {error && (
             <div className="shrink-0">

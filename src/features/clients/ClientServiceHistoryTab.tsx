@@ -15,6 +15,7 @@ import type {
 import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import {
   formatCurrency,
   formatDateTimeSaoPaulo,
@@ -151,7 +152,9 @@ export function ClientServiceHistoryTab({
       </div>
 
       {loading ? (
-        <LoadingMessage>Carregando atendimentos do cliente...</LoadingMessage>
+        <LoadingMessage variant="list">
+          Carregando atendimentos do cliente...
+        </LoadingMessage>
       ) : error ? (
         <div className="grid gap-2.5">
           <FeedbackMessage
@@ -343,17 +346,23 @@ export function ClientServiceHistoryTab({
           )}
 
           {items.length < total && (
-            <Button
-              className="w-full"
-              disabled={loadingMore}
-              onClick={onLoadMore}
-              type="button"
-              variant="secondary"
-            >
-              {loadingMore
-                ? "Carregando mais atendimentos..."
-                : `Carregar mais (${items.length} de ${total})`}
-            </Button>
+            <div className="w-full space-y-2.5">
+              <InlineMutationProgress
+                active={loadingMore}
+                label="Carregando mais atendimentos..."
+              />
+              <Button
+                className="w-full"
+                disabled={loadingMore}
+                onClick={onLoadMore}
+                type="button"
+                variant="secondary"
+              >
+                {loadingMore
+                  ? "Carregando mais atendimentos..."
+                  : `Carregar mais (${items.length} de ${total})`}
+              </Button>
+            </div>
           )}
         </div>
       )}

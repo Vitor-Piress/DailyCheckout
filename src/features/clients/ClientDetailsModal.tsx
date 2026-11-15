@@ -33,6 +33,7 @@ import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { ModalOverlay } from "../../components/ui/ModalOverlay";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCpf,
@@ -873,6 +874,26 @@ export function ClientDetailsModal({
           </div>
         )}
 
+        <InlineMutationProgress
+          active={busyMutating}
+          className="shrink-0"
+          label={
+            redeemingPackCut
+              ? "Registrando corte do pacote..."
+              : redeemingLoyaltyCut
+                ? "Resgatando corte fidelidade..."
+                : cancelingPack
+                  ? "Cancelando pacote..."
+                  : "Cancelando registro..."
+          }
+        />
+
+        <InlineMutationProgress
+          active={!busyMutating && serviceLoading && !summary}
+          className="shrink-0"
+          label="Carregando resumo e histórico do cliente..."
+        />
+
         {/* 1. Faixa de Resumo Rápido */}
         <div
           aria-label="Resumo rápido de atendimentos"
@@ -882,45 +903,65 @@ export function ClientDetailsModal({
             <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Atendimentos
             </span>
-            <strong className="text-base font-extrabold text-[#17211b]">
-              {summary ? summary.totalServicesCount : "—"}
-            </strong>
+            {serviceLoading && !summary ? (
+              <span className="mt-1 block h-5 w-10 animate-pulse rounded bg-[#dce5dd]" />
+            ) : (
+              <strong className="text-base font-extrabold text-[#17211b]">
+                {summary ? summary.totalServicesCount : "—"}
+              </strong>
+            )}
           </div>
 
           <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
             <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Avulsos
             </span>
-            <strong className="text-base font-extrabold text-[#17211b]">
-              {summary ? summary.standaloneServicesCount : "—"}
-            </strong>
+            {serviceLoading && !summary ? (
+              <span className="mt-1 block h-5 w-10 animate-pulse rounded bg-[#dce5dd]" />
+            ) : (
+              <strong className="text-base font-extrabold text-[#17211b]">
+                {summary ? summary.standaloneServicesCount : "—"}
+              </strong>
+            )}
           </div>
 
           <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
             <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Via pacote
             </span>
-            <strong className="text-base font-extrabold text-[#2f6840]">
-              {summary ? summary.packServicesCount : "—"}
-            </strong>
+            {serviceLoading && !summary ? (
+              <span className="mt-1 block h-5 w-10 animate-pulse rounded bg-[#dce5dd]" />
+            ) : (
+              <strong className="text-base font-extrabold text-[#2f6840]">
+                {summary ? summary.packServicesCount : "—"}
+              </strong>
+            )}
           </div>
 
           <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
             <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Fidelidade
             </span>
-            <strong className="text-base font-extrabold text-[#805d12]">
-              {summary ? (summary.loyaltyServicesCount ?? 0) : "—"}
-            </strong>
+            {serviceLoading && !summary ? (
+              <span className="mt-1 block h-5 w-10 animate-pulse rounded bg-[#dce5dd]" />
+            ) : (
+              <strong className="text-base font-extrabold text-[#805d12]">
+                {summary ? (summary.loyaltyServicesCount ?? 0) : "—"}
+              </strong>
+            )}
           </div>
 
           <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2 sm:col-span-1 sm:block">
             <span className="block text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Última visita
             </span>
-            <strong className="text-base font-extrabold text-[#17211b]">
-              {summary ? formatDayMonthSaoPaulo(summary.lastServiceAt) : "—"}
-            </strong>
+            {serviceLoading && !summary ? (
+              <span className="mt-1 block h-5 w-14 animate-pulse rounded bg-[#dce5dd]" />
+            ) : (
+              <strong className="text-base font-extrabold text-[#17211b]">
+                {summary ? formatDayMonthSaoPaulo(summary.lastServiceAt) : "—"}
+              </strong>
+            )}
           </div>
         </div>
 

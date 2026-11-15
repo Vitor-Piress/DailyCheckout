@@ -10,6 +10,7 @@ import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { ModalOverlay } from "../../components/ui/ModalOverlay";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import { expensePaymentOptions } from "../../lib/formatters";
 
@@ -208,6 +209,11 @@ export function ExpenseFormModal({
               value={notes}
             />
           </label>
+
+          <InlineMutationProgress
+            active={submitting}
+            label="Lançando despesa..."
+          />
 
           {error && (
             <div className="shrink-0">

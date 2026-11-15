@@ -1,6 +1,6 @@
 import { BarChart3, CalendarCheck, Receipt, RefreshCw } from "lucide-react";
 import { LayoutGroup } from "motion/react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import { isAdmin } from "../../auth/roles";
@@ -31,16 +31,41 @@ const adminNavItems = [
 
 export function Management() {
   const [refreshToken, setRefreshToken] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingSections, setLoadingSections] = useState<
+    Record<string, boolean>
+  >({});
   const { role } = useAuth();
   const location = useLocation();
   const showAdminNav = isAdmin(role);
 
+  const refreshing = Object.values(loadingSections).some(Boolean);
+
+  const setSectionLoading = useCallback(
+    (sectionId: string, isLoading: boolean) => {
+      setLoadingSections((current) => {
+        const wasLoading = Boolean(current[sectionId]);
+        if (wasLoading === isLoading) {
+          return current;
+        }
+        if (!isLoading) {
+          const next = { ...current };
+          delete next[sectionId];
+          return next;
+        }
+        return { ...current, [sectionId]: true };
+      });
+    },
+    [],
+  );
+
+  const outletContext = useMemo<ManagementOutletContext>(
+    () => ({ refreshToken, setSectionLoading }),
+    [refreshToken, setSectionLoading],
+  );
+
   function refreshManagement() {
     if (refreshing) return;
-    setRefreshing(true);
     setRefreshToken((current) => current + 1);
-    window.setTimeout(() => setRefreshing(false), 700);
   }
 
   return (
@@ -58,11 +83,16 @@ export function Management() {
           </p>
         </div>
         <Button
-          aria-label="Atualizar dados da Gestão"
+          aria-busy={refreshing}
+          aria-label={
+            refreshing
+              ? "Atualizando dados da Gestão"
+              : "Atualizar dados da Gestão"
+          }
           className="!min-h-11 h-11 flex shrink-0 items-center gap-1.5 px-3 text-xs whitespace-nowrap shadow-[0_0.25rem_0.75rem_rgb(47_104_64/18%)] sm:px-3.5 sm:text-sm"
           disabled={refreshing}
           onClick={refreshManagement}
-          title="Atualizar dados"
+          title={refreshing ? "Atualizando dados..." : "Atualizar dados"}
           type="button"
         >
           <RefreshCw
@@ -119,7 +149,7 @@ export function Management() {
       )}
 
       <div className="motion-content min-w-0" key={location.pathname}>
-        <Outlet context={{ refreshToken } satisfies ManagementOutletContext} />
+        <Outlet context={outletContext} />
       </div>
     </section>
   );

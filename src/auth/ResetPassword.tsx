@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { FeedbackMessage } from "../components/ui/FeedbackMessage";
 import { Panel } from "../components/ui/Panel";
+import { InlineMutationProgress } from "../components/ui/ProgressBar";
 import { SignatureFooter } from "../components/layout/SignatureFooter";
 import { authClient } from "./authClient";
 import { useAuth } from "./authContext";
@@ -116,6 +117,10 @@ export function ResetPassword() {
               />
             </label>
             {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
+            <InlineMutationProgress
+              active={submitting}
+              label="Atualizando senha..."
+            />
             <Button disabled={submitting || !token} type="submit">
               {submitting ? "Salvando..." : "Salvar nova senha"}
             </Button>

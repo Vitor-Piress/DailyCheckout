@@ -63,6 +63,20 @@ a {
   }
 }
 
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.progress-shimmer-bar {
+  animation: progress-shimmer 1.35s ease-in-out infinite;
+}
+
 [data-motion="disabled"] *,
 [data-motion="disabled"] *::before,
 [data-motion="disabled"] *::after {

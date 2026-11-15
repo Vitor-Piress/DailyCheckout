@@ -29,9 +29,13 @@ import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { Panel } from "../../components/ui/Panel";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import { useAuth } from "../../auth/authContext";
-import { useManagementRefreshToken } from "./managementContext";
+import {
+  useManagementLoadingSync,
+  useManagementRefreshToken,
+} from "./managementContext";
 import {
   formatCurrency,
   formatIsoDate,
@@ -78,10 +82,23 @@ export function DailyManagement({
   );
   const [summariesExpanded, setSummariesExpanded] = useState(false);
   const [recordsExpanded, setRecordsExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [settledRequestKey, setSettledRequestKey] = useState<string | null>(
+    null,
+  );
+  const [stepsState, setStepsState] = useState({ key: "", count: 0 });
+  const [errorState, setErrorState] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   const [invalidationNonce, setInvalidationNonce] = useState(0);
   const suppressInvalidationRef = useRef(false);
+
+  const requestKey = `${date}|${refreshToken}|${invalidationNonce}|${role ?? ""}`;
+  const loading = settledRequestKey !== requestKey;
+  const loadedSteps = stepsState.key === requestKey ? stepsState.count : 0;
+  const error = errorState?.key === requestKey ? errorState.message : null;
+
+  useManagementLoadingSync(loading);
 
   useEffect(() => {
     return subscribeReportInvalidation(() => {
@@ -91,40 +108,63 @@ export function DailyManagement({
   }, []);
 
   useEffect(() => {
+    let active = true;
+    let completed = 0;
+
+    const trackStep = <T,>(promise: Promise<T>): Promise<T> =>
+      promise.then((value) => {
+        completed += 1;
+        if (active) {
+          setStepsState({ key: requestKey, count: completed });
+        }
+        return value;
+      });
+
     void Promise.all([
-      listServiceRecords(date),
-      getDailyReport(date),
-      listServiceTypes(),
+      trackStep(listServiceRecords(date)),
+      trackStep(getDailyReport(date)),
+      trackStep(listServiceTypes()),
     ])
       .then(([serviceRecords, dailyReport, availableServices]) => {
+        if (!active) {
+          return;
+        }
         setRecords(serviceRecords);
         setReport(dailyReport);
         setServiceTypes(availableServices);
       })
       .catch((cause: unknown) => {
+        if (!active) {
+          return;
+        }
         console.error(
           "Não foi possível carregar o acompanhamento diário:",
           cause,
         );
-        setError(
-          getApiErrorMessage(
+        setErrorState({
+          key: requestKey,
+          message: getApiErrorMessage(
             cause,
             "Não foi possível carregar os dados do dia.",
           ),
-        );
+        });
       })
       .finally(() => {
-        setLoading(false);
+        if (active) {
+          setSettledRequestKey(requestKey);
+        }
       });
-  }, [date, refreshToken, invalidationNonce, role]);
+
+    return () => {
+      active = false;
+    };
+  }, [date, requestKey]);
 
   function changeDate(value: string) {
     if (!value) {
       return;
     }
 
-    setLoading(true);
-    setError(null);
     setReport(null);
     setRecords([]);
     setServiceTypes([]);
@@ -407,11 +447,20 @@ export function DailyManagement({
           </button>
         </div>
       </div>
-      {loading && <LoadingMessage>Carregando dados do dia...</LoadingMessage>}
+      {loading && (
+        <LoadingMessage
+          completedSteps={loadedSteps}
+          resetKey={requestKey}
+          totalSteps={3}
+          variant="metrics"
+        >
+          Carregando dados do dia...
+        </LoadingMessage>
+      )}
       {error && (
         <FeedbackMessage
           message={error}
-          onClose={() => setError(null)}
+          onClose={() => setErrorState(null)}
           variant="error"
         />
       )}
@@ -869,16 +918,22 @@ export function DailyManagement({
                     </div>
                   )}
                   {displayedSettlement.status === "open" && (
-                    <button
-                      className="mt-5 min-h-11 rounded-[0.55rem] bg-[#2f6840] px-4 py-2 font-bold text-white transition hover:bg-[#245432] disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={settlementSubmitting}
-                      onClick={() => void handleCloseSettlement()}
-                      type="button"
-                    >
-                      {settlementSubmitting
-                        ? "Fechando caixa..."
-                        : "Fechar caixa do dia"}
-                    </button>
+                    <div className="mt-5 space-y-2.5">
+                      <InlineMutationProgress
+                        active={settlementSubmitting}
+                        label="Fechando caixa do dia..."
+                      />
+                      <button
+                        className="min-h-11 rounded-[0.55rem] bg-[#2f6840] px-4 py-2 font-bold text-white transition hover:bg-[#245432] disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={settlementSubmitting}
+                        onClick={() => void handleCloseSettlement()}
+                        type="button"
+                      >
+                        {settlementSubmitting
+                          ? "Fechando caixa..."
+                          : "Fechar caixa do dia"}
+                      </button>
+                    </div>
                   )}
                 </>
               ) : (
@@ -958,6 +1013,11 @@ export function DailyManagement({
                 variant="error"
               />
             )}
+
+            <InlineMutationProgress
+              active={Boolean(cancelingRecordId)}
+              label="Cancelando atendimento..."
+            />
 
             {records.length === 0 ? (
               <p className="m-0 text-sm text-[#617067]">

@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { EmptyState } from "../components/ui/EmptyState";
+import { LoadingMessage } from "../components/ui/LoadingMessage";
 import { useAuth } from "./authContext";
 
 export function AuthGuard() {
@@ -7,7 +7,15 @@ export function AuthGuard() {
   const location = useLocation();
 
   if (loading || roleLoading) {
-    return <EmptyState>Restaurando sua sessão...</EmptyState>;
+    return (
+      <div className="mx-auto grid min-h-dvh w-full max-w-[34rem] content-center gap-3 px-4 py-8 sm:px-6">
+        <LoadingMessage variant="cards">
+          {loading
+            ? "Restaurando sua sessão..."
+            : "Carregando permissões da conta..."}
+        </LoadingMessage>
+      </div>
+    );
   }
 
   if (!user) {

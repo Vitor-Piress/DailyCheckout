@@ -12,7 +12,10 @@ import { subscribeReportInvalidation } from "../../api/clientInvalidation";
 import { getPeriodicReport } from "../../api/dailyCheckoutApi";
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../auth/authContext";
-import { useManagementRefreshToken } from "./managementContext";
+import {
+  useManagementLoadingSync,
+  useManagementRefreshToken,
+} from "./managementContext";
 import type { Period, PeriodicReport } from "../../api/types";
 import { SummaryList } from "../../components/reports/SummaryList";
 import { UserReportGroups } from "../../components/reports/UserReportGroups";
@@ -310,10 +313,25 @@ export function PeriodicManagement({
   const [referenceYear, setReferenceYear] = useState(currentYear);
   const [referenceDate, setReferenceDate] = useState(getToday);
   const [report, setReport] = useState<PeriodicReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [settledRequestKey, setSettledRequestKey] = useState<string | null>(
+    null,
+  );
+  const [errorState, setErrorState] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   const [daysExpanded, setDaysExpanded] = useState(false);
   const [invalidationNonce, setInvalidationNonce] = useState(0);
+
+  const requestDate =
+    period === "week"
+      ? referenceDate
+      : `${referenceYear}-${referenceMonthNumber}-01`;
+  const requestKey = `${period}|${requestDate}|${refreshToken}|${invalidationNonce}`;
+  const loading = settledRequestKey !== requestKey;
+  const error = errorState?.key === requestKey ? errorState.message : null;
+
+  useManagementLoadingSync(loading);
 
   useEffect(() => {
     return subscribeReportInvalidation(() => {
@@ -337,39 +355,42 @@ export function PeriodicManagement({
   }
 
   useEffect(() => {
-    const requestDate =
-      period === "week"
-        ? referenceDate
-        : `${referenceYear}-${referenceMonthNumber}-01`;
+    let active = true;
     void getPeriodicReport(period, requestDate)
-      .then(setReport)
+      .then((data) => {
+        if (active) {
+          setReport(data);
+        }
+      })
       .catch((cause: unknown) => {
+        if (!active) return;
         console.error(
           "Não foi possível carregar o relatório periódico:",
           cause,
         );
-        setError(
-          cause instanceof ApiError && cause.status === 403
-            ? "Este relatório é restrito ao perfil administrador."
-            : getApiErrorMessage(
-                cause,
-                "Não foi possível carregar o relatório periódico.",
-              ),
-        );
+        setErrorState({
+          key: requestKey,
+          message:
+            cause instanceof ApiError && cause.status === 403
+              ? "Este relatório é restrito ao perfil administrador."
+              : getApiErrorMessage(
+                  cause,
+                  "Não foi possível carregar o relatório periódico.",
+                ),
+        });
       })
-      .finally(() => setLoading(false));
-  }, [
-    period,
-    referenceDate,
-    referenceMonthNumber,
-    referenceYear,
-    refreshToken,
-    invalidationNonce,
-  ]);
+      .finally(() => {
+        if (active) {
+          setSettledRequestKey(requestKey);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [period, requestDate, requestKey]);
 
   function changePeriod(value: Period) {
-    setLoading(true);
-    setError(null);
     setReport(null);
     setPeriod(value);
     if (value === "week") {
@@ -384,8 +405,6 @@ export function PeriodicManagement({
       return;
     }
 
-    setLoading(true);
-    setError(null);
     setReport(null);
     const [year, month] = value.split("-");
     if (year && month) {
@@ -440,8 +459,6 @@ export function PeriodicManagement({
     if (!value) {
       return;
     }
-    setLoading(true);
-    setError(null);
     setReport(null);
     setReferenceDate(value);
   }
@@ -676,12 +693,14 @@ export function PeriodicManagement({
         </div>
       </div>
       {loading && (
-        <LoadingMessage>Carregando relatório periódico...</LoadingMessage>
+        <LoadingMessage resetKey={requestKey} variant="metrics">
+          Carregando relatório periódico...
+        </LoadingMessage>
       )}
       {error && (
         <FeedbackMessage
           message={error}
-          onClose={() => setError(null)}
+          onClose={() => setErrorState(null)}
           variant="error"
         />
       )}

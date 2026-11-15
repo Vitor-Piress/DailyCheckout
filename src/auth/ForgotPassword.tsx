@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { FeedbackMessage } from "../components/ui/FeedbackMessage";
 import { Panel } from "../components/ui/Panel";
+import { InlineMutationProgress } from "../components/ui/ProgressBar";
 import { SignatureFooter } from "../components/layout/SignatureFooter";
 import { authClient } from "./authClient";
 import { useAuth } from "./authContext";
@@ -86,6 +87,10 @@ export function ForgotPassword() {
               />
             </label>
             {error && <FeedbackMessage message={error} onClose={() => setError(null)} variant="error" />}
+            <InlineMutationProgress
+              active={submitting}
+              label="Enviando link de recuperação..."
+            />
             <Button disabled={submitting} type="submit">
               {submitting ? "Enviando..." : "Enviar link de recuperação"}
             </Button>

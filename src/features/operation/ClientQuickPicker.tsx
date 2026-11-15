@@ -15,7 +15,9 @@ import { listClients } from "../../api/dailyCheckoutApi";
 import type { Client, PaymentMethod } from "../../api/types";
 import { Button } from "../../components/ui/Button";
 import { CurrencyInput } from "../../components/ui/CurrencyInput";
+import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { Panel } from "../../components/ui/Panel";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { formatCurrency, formatPhone } from "../../lib/formatters";
 import { LoyaltyRedeemFields } from "../clients/LoyaltyRedeemFields";
 import { LoyaltyStampGrid } from "../clients/LoyaltyStampGrid";
@@ -281,9 +283,9 @@ export function ClientQuickPicker({
         {isDropdownOpen && (
           <div className="motion-content grid min-w-0 gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-2.5">
             {searching ? (
-              <p className="m-0 px-2 py-2 text-xs font-medium text-[#617067]">
+              <LoadingMessage variant="compact">
                 Buscando clientes...
-              </p>
+              </LoadingMessage>
             ) : results.length === 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5">
                 <span className="text-xs text-[#617067]">
@@ -461,6 +463,11 @@ export function ClientQuickPicker({
             tipTouched={loyaltyTipTouched}
           />
 
+          <InlineMutationProgress
+            active={submittingLoyaltyCut}
+            label="Resgatando corte gratuito..."
+          />
+
           <Button
             className="!min-h-12 flex w-full items-center justify-center gap-2 text-sm shadow-sm sm:text-base"
             disabled={
@@ -560,6 +567,11 @@ export function ClientQuickPicker({
                 placeholder="Observações do corte (opcional)..."
                 type="text"
                 value={notes}
+              />
+
+              <InlineMutationProgress
+                active={submittingPackCut}
+                label="Registrando corte do pacote..."
               />
 
               <Button

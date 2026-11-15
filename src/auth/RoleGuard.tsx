@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { EmptyState } from "../components/ui/EmptyState";
+import { LoadingMessage } from "../components/ui/LoadingMessage";
 import { useAuth } from "./authContext";
 import type { UserRole } from "./roles";
 
@@ -14,7 +14,13 @@ export function RoleGuard({
   const location = useLocation();
 
   if (loading || roleLoading) {
-    return <EmptyState>Carregando seu perfil de acesso...</EmptyState>;
+    return (
+      <div className="mx-auto w-full max-w-[34rem] py-4">
+        <LoadingMessage variant="cards">
+          Carregando seu perfil de acesso...
+        </LoadingMessage>
+      </div>
+    );
   }
 
   if (!user) {

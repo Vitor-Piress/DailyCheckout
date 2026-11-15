@@ -9,6 +9,7 @@ import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { ModalOverlay } from "../../components/ui/ModalOverlay";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import { formatCurrency } from "../../lib/formatters";
 import { PaymentMethodSelector } from "../operation/PaymentMethodSelector";
@@ -231,6 +232,11 @@ export function PackRedeemModal({
               value={notes}
             />
           </label>
+
+          <InlineMutationProgress
+            active={submitting}
+            label="Registrando corte do pacote..."
+          />
 
           {error && (
             <div className="shrink-0">

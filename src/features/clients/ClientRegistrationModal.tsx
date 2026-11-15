@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { ModalOverlay } from "../../components/ui/ModalOverlay";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import { maskCpfInput, maskPhoneInput } from "../../lib/formatters";
 
@@ -236,6 +237,15 @@ export function ClientRegistrationModal({
               </m.div>
             )}
           </AnimatePresence>
+
+          <InlineMutationProgress
+            active={submitting}
+            label={
+              editingClient
+                ? "Salvando alterações do cliente..."
+                : "Cadastrando cliente..."
+            }
+          />
 
           {error && (
             <div className="shrink-0">

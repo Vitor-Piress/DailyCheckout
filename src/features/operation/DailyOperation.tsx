@@ -19,7 +19,9 @@ import { Button } from "../../components/ui/Button";
 import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
+import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { Panel } from "../../components/ui/Panel";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCurrency,
@@ -441,7 +443,13 @@ export function DailyOperation() {
         <LiveDateTimeBadge />
       </div>
 
-      {loading && <EmptyState>Carregando serviços disponíveis...</EmptyState>}
+      {loading && (
+        <div className="mx-auto w-full max-w-[42rem]">
+          <LoadingMessage variant="cards">
+            Carregando serviços disponíveis...
+          </LoadingMessage>
+        </div>
+      )}
       {!loading && loadError && (
         <EmptyState
           icon={<AlertCircle size={28} />}
@@ -699,6 +707,11 @@ export function DailyOperation() {
                   variant="error"
                 />
               )}
+
+              <InlineMutationProgress
+                active={submitting}
+                label="Registrando atendimento..."
+              />
 
               <Button
                 disabled={!paymentMethod || !isTipValid || submitting}

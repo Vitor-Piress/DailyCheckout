@@ -26,6 +26,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { Panel } from "../../components/ui/Panel";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCpf,
@@ -331,7 +332,9 @@ export function ClientsAndPacks() {
       )}
 
       {loading ? (
-        <LoadingMessage>Carregando clientes e pacotes...</LoadingMessage>
+        <LoadingMessage variant="cards">
+          Carregando clientes e pacotes...
+        </LoadingMessage>
       ) : clients.length === 0 ? (
         <EmptyState
           icon={<Users size={28} />}
@@ -558,17 +561,23 @@ export function ClientsAndPacks() {
           })}
 
           {clients.length < total && (
-            <Button
-              className="w-full"
-              disabled={loadingMore}
-              onClick={() => void fetchClients(clients.length, true)}
-              type="button"
-              variant="secondary"
-            >
-              {loadingMore
-                ? "Carregando mais clientes..."
-                : `Carregar mais (${clients.length} de ${total})`}
-            </Button>
+            <div className="w-full space-y-2.5">
+              <InlineMutationProgress
+                active={loadingMore}
+                label="Carregando mais clientes..."
+              />
+              <Button
+                className="w-full"
+                disabled={loadingMore}
+                onClick={() => void fetchClients(clients.length, true)}
+                type="button"
+                variant="secondary"
+              >
+                {loadingMore
+                  ? "Carregando mais clientes..."
+                  : `Carregar mais (${clients.length} de ${total})`}
+              </Button>
+            </div>
           )}
         </div>
       )}

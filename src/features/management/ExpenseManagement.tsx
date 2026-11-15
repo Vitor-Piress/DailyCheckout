@@ -23,7 +23,10 @@ import {
   paymentMethodLabel,
 } from "../../lib/formatters";
 import { ExpenseFormModal } from "./ExpenseFormModal";
-import { useManagementRefreshToken } from "./managementContext";
+import {
+  useManagementLoadingSync,
+  useManagementRefreshToken,
+} from "./managementContext";
 
 const fieldClass =
   "w-full rounded-[0.55rem] border border-[#c8d6ca] bg-white px-3 py-2 text-[#23372a] font-normal focus-visible:outline-2 focus-visible:outline-[#2f6840]";
@@ -44,8 +47,14 @@ export function ExpenseManagement({
   );
   const [selectedYear, setSelectedYear] = useState(currentMonth.slice(0, 4));
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [settledRequestKey, setSettledRequestKey] = useState<string | null>(
+    null,
+  );
+  const [manualReloading, setManualReloading] = useState(false);
+  const [errorState, setErrorState] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -53,6 +62,14 @@ export function ExpenseManagement({
     /^\d{4}$/.test(selectedYear) && /^\d{2}$/.test(selectedMonthNumber)
       ? `${selectedYear}-${selectedMonthNumber}`
       : "";
+  const requestKey = selectedMonth ? `${selectedMonth}|${refreshToken}` : "";
+  const loading =
+    Boolean(selectedMonth) &&
+    (settledRequestKey !== requestKey || manualReloading);
+  const error =
+    selectedMonth && errorState?.key === requestKey ? errorState.message : null;
+
+  useManagementLoadingSync(loading);
   const selectedMonthIndex =
     /^\d{4}$/.test(selectedYear) && /^\d{2}$/.test(selectedMonthNumber)
       ? Number(selectedYear) * 12 + Number(selectedMonthNumber) - 1
@@ -88,8 +105,6 @@ export function ExpenseManagement({
       2,
       "0",
     );
-    setLoading(true);
-    setError(null);
     setExpenses([]);
     setSelectedYear(targetYear);
     setSelectedMonthNumber(targetMonthNumber);
@@ -110,25 +125,27 @@ export function ExpenseManagement({
       .catch((cause: unknown) => {
         if (cancelled) return;
         console.error("Não foi possível carregar as despesas:", cause);
-        setError(
-          cause instanceof ApiError && cause.status === 403
-            ? "Seu perfil não possui acesso às despesas."
-            : getApiErrorMessage(
-                cause,
-                "Não foi possível carregar as despesas.",
-              ),
-        );
+        setErrorState({
+          key: requestKey,
+          message:
+            cause instanceof ApiError && cause.status === 403
+              ? "Seu perfil não possui acesso às despesas."
+              : getApiErrorMessage(
+                  cause,
+                  "Não foi possível carregar as despesas.",
+                ),
+        });
       })
       .finally(() => {
         if (!cancelled) {
-          setLoading(false);
+          setSettledRequestKey(requestKey);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedMonth, refreshToken]);
+  }, [selectedMonth, requestKey]);
 
   async function handleExpenseCreated(
     createdExpense: Expense,
@@ -139,7 +156,7 @@ export function ExpenseManagement({
     const dueMonth = effectiveDueDate.slice(0, 7);
 
     setIsCreateModalOpen(false);
-    setError(null);
+    setErrorState(null);
     setSuccess(
       `Despesa lançada com sucesso (vencimento em ${formatIsoDate(effectiveDueDate)}).`,
     );
@@ -147,7 +164,6 @@ export function ExpenseManagement({
     if (dueMonth !== selectedMonth) {
       const [dueYear, dueMonthNumber] = dueMonth.split("-");
       if (dueYear && dueMonthNumber) {
-        setLoading(true);
         setExpenses([]);
         setSelectedYear(dueYear);
         setSelectedMonthNumber(dueMonthNumber);
@@ -155,21 +171,23 @@ export function ExpenseManagement({
       return;
     }
 
-    setLoading(true);
+    setManualReloading(true);
     try {
       setExpenses(await listExpensesByMonth(selectedMonth));
     } catch (cause: unknown) {
       console.error("Não foi possível atualizar a lista de despesas:", cause);
-      setError(
-        cause instanceof ApiError && cause.status === 403
-          ? "Seu perfil não possui acesso às despesas."
-          : getApiErrorMessage(
-              cause,
-              "Despesa lançada, mas não foi possível atualizar a lista.",
-            ),
-      );
+      setErrorState({
+        key: requestKey,
+        message:
+          cause instanceof ApiError && cause.status === 403
+            ? "Seu perfil não possui acesso às despesas."
+            : getApiErrorMessage(
+                cause,
+                "Despesa lançada, mas não foi possível atualizar a lista.",
+              ),
+      });
     } finally {
-      setLoading(false);
+      setManualReloading(false);
     }
   }
 
@@ -198,7 +216,7 @@ export function ExpenseManagement({
       {error && (
         <FeedbackMessage
           message={error}
-          onClose={() => setError(null)}
+          onClose={() => setErrorState(null)}
           variant="error"
         />
       )}
@@ -227,8 +245,6 @@ export function ExpenseManagement({
               <select
                 className={`${fieldClass} ${controlHeightClass} min-w-0 flex-1 cursor-pointer`}
                 onChange={(event) => {
-                  setLoading(true);
-                  setError(null);
                   setExpenses([]);
                   setSelectedMonthNumber(event.target.value);
                 }}
@@ -264,13 +280,8 @@ export function ExpenseManagement({
               min="2000"
               onChange={(event) => {
                 const year = event.target.value;
-                setLoading(true);
-                setError(null);
                 setExpenses([]);
                 setSelectedYear(year);
-                if (!/^\d{4}$/.test(year)) {
-                  setLoading(false);
-                }
               }}
               type="number"
               value={selectedYear}
@@ -279,7 +290,11 @@ export function ExpenseManagement({
         </div>
       </div>
 
-      {loading && <LoadingMessage>Carregando despesas...</LoadingMessage>}
+      {loading && (
+        <LoadingMessage resetKey={requestKey} variant="list">
+          Carregando despesas...
+        </LoadingMessage>
+      )}
 
       {!loading && !error && expenses.length === 0 && (
         <p className="m-0 rounded-xl border border-dashed border-[#c8d6ca] bg-[#f5f7f4] p-4 text-sm text-[#617067]">

@@ -19,6 +19,7 @@ import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { ModalOverlay } from "../../components/ui/ModalOverlay";
+import { InlineMutationProgress } from "../../components/ui/ProgressBar";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCurrency,
@@ -202,7 +203,9 @@ export function PackPurchaseModal({
 
       {loadingPlans ? (
         <div className="flex min-h-[26rem] items-center justify-center px-4 py-4 sm:px-5">
-          <LoadingMessage>Carregando planos de pacotes...</LoadingMessage>
+          <LoadingMessage className="w-full" variant="cards">
+            Carregando planos de pacotes...
+          </LoadingMessage>
         </div>
       ) : (
         <form
@@ -411,6 +414,11 @@ export function PackPurchaseModal({
                 value={notes}
               />
             </label>
+
+            <InlineMutationProgress
+              active={submitting}
+              label="Registrando venda do pacote..."
+            />
 
             {error && (
               <div className="shrink-0">

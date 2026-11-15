@@ -1,4 +1,5 @@
 import { authClient, getAuthToken } from "../auth/authClient";
+import { trackApiRequest } from "./apiProgress";
 
 export type ApiErrorDetails = Record<string, unknown>[];
 
@@ -64,17 +65,10 @@ function getErrorDetails(body: unknown): ApiErrorDetails | undefined {
   return undefined;
 }
 
-export async function request<T>(
+async function executeRequest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  if (!apiUrl) {
-    throw new ApiError(
-      "A variável VITE_API_URL não foi configurada. Defina-a no arquivo .env.",
-      0,
-    );
-  }
-
   const token = await getAuthToken();
 
   if (!token) {
@@ -119,4 +113,18 @@ export async function request<T>(
   }
 
   return body as T;
+}
+
+export async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  if (!apiUrl) {
+    throw new ApiError(
+      "A variável VITE_API_URL não foi configurada. Defina-a no arquivo .env.",
+      0,
+    );
+  }
+
+  return trackApiRequest(() => executeRequest<T>(path, options));
 }

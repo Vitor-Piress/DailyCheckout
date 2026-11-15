@@ -76,7 +76,11 @@ export function ClientPacksTab({
   onRequestNewPack?: () => void;
 }) {
   if (loading) {
-    return <LoadingMessage>Carregando histórico de pacotes...</LoadingMessage>;
+    return (
+      <LoadingMessage variant="list">
+        Carregando histórico de pacotes...
+      </LoadingMessage>
+    );
   }
 
   if (error) {
@@ -158,7 +162,9 @@ export function ClientPacksTab({
       )}
 
       {loadingDetail && (
-        <LoadingMessage>Atualizando cortes do pacote...</LoadingMessage>
+        <LoadingMessage variant="compact">
+          Atualizando cortes do pacote...
+        </LoadingMessage>
       )}
 
       {!loadingDetail && activePack && (
