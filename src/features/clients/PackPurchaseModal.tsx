@@ -1,4 +1,5 @@
 import { Check, PackagePlus, Scissors, ShieldCheck, X } from "lucide-react";
+import { AnimatePresence, m } from "motion/react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
+import { ModalOverlay } from "../../components/ui/ModalOverlay";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCurrency,
@@ -166,44 +168,48 @@ export function PackPurchaseModal({
   }
 
   return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
-      role="dialog"
+    <ModalOverlay
+      disabled={submitting}
+      maxWidthClass="max-w-[34rem]"
+      onClose={onClose}
     >
-      <div className="motion-content max-h-[94vh] w-full max-w-[34rem] overflow-y-auto rounded-t-2xl border border-[#dce5dd] bg-white p-5 shadow-2xl sm:rounded-2xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
-              <PackagePlus size={20} />
-            </div>
-            <div>
-              <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                Venda / Renovação em 1 passo
-              </p>
-              <h2 className="m-0 text-lg font-bold text-[#17211b]">
-                Pacote Mensal · {client.name}
-              </h2>
-              <small className="text-xs text-[#617067]">
-                {formatPhone(client.phone)} · Exclusivo para Corte Masculino
-              </small>
-            </div>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-5 pt-4 pb-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
+            <PackagePlus size={20} />
           </div>
-          <IconButton
-            aria-label="Fechar"
-            icon={<X size={18} />}
-            onClick={onClose}
-            type="button"
-          />
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-bold tracking-[0.08em] text-[#4a7957] uppercase">
+              Venda / Renovação em 1 passo
+            </p>
+            <h2 className="m-0 truncate text-lg font-bold text-[#17211b]">
+              Pacote Mensal · {client.name}
+            </h2>
+            <small className="text-xs text-[#617067]">
+              {formatPhone(client.phone)} · Exclusivo para Corte Masculino
+            </small>
+          </div>
         </div>
+        <IconButton
+          aria-label="Fechar"
+          className="shrink-0"
+          disabled={submitting}
+          icon={<X size={18} />}
+          onClick={onClose}
+          type="button"
+        />
+      </div>
 
-        {loadingPlans ? (
+      {loadingPlans ? (
+        <div className="px-5 py-4">
           <LoadingMessage>Carregando planos de pacotes...</LoadingMessage>
-        ) : (
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => void handleSubmit(event)}
-          >
+        </div>
+      ) : (
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
+          <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
             <fieldset className="grid gap-2.5 border-0 p-0">
               <legend className="mb-1.5 text-sm font-bold text-[#34443a]">
                 Escolha o plano (Corte Masculino)
@@ -340,45 +346,56 @@ export function PackPurchaseModal({
                 />
               </label>
 
-              {redeemFirstCut && (
-                <div className="grid gap-3 border-t border-[#dce5dd] pt-3">
-                  <div className="grid gap-1">
-                    <label
-                      className="text-xs font-bold text-[#34443a]"
-                      htmlFor="pack-first-cut-tip"
-                    >
-                      Gorjeta do 1º corte (opcional)
-                    </label>
-                    <CurrencyInput
-                      className={fieldClass}
-                      disabled={submitting}
-                      id="pack-first-cut-tip"
-                      onChangeCents={(val) => {
-                        if (val <= 50000) {
-                          setTipCents(val);
-                          if (error) setError(null);
-                        }
-                      }}
-                      placeholder="R$ 0,00"
-                      valueCents={tipCents}
-                    />
-                    <span className="text-[11px] text-[#617067]">
-                      Máximo de R$ 500,00 · Repassado integralmente a quem realizou o corte.
-                    </span>
-                  </div>
+              <AnimatePresence initial={false}>
+                {redeemFirstCut && (
+                  <m.div
+                    animate={{ height: "auto", opacity: 1 }}
+                    className="overflow-hidden"
+                    exit={{ height: 0, opacity: 0 }}
+                    initial={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <div className="grid gap-3 border-t border-[#dce5dd] pt-3">
+                      <div className="grid gap-1">
+                        <label
+                          className="text-xs font-bold text-[#34443a]"
+                          htmlFor="pack-first-cut-tip"
+                        >
+                          Gorjeta do 1º corte (opcional)
+                        </label>
+                        <CurrencyInput
+                          className={fieldClass}
+                          disabled={submitting}
+                          id="pack-first-cut-tip"
+                          onChangeCents={(val) => {
+                            if (val <= 50000) {
+                              setTipCents(val);
+                              if (error) setError(null);
+                            }
+                          }}
+                          placeholder="R$ 0,00"
+                          valueCents={tipCents}
+                        />
+                        <span className="text-[11px] text-[#617067]">
+                          Máximo de R$ 500,00 · Repassado integralmente a quem
+                          realizou o corte.
+                        </span>
+                      </div>
 
-                  {tipCents > 0 && (
-                    <PaymentMethodSelector
-                      legend="Forma de pagamento da gorjeta"
-                      name="pack-tip-payment-method"
-                      onChange={(method) => {
-                        if (method) setTipPaymentMethod(method);
-                      }}
-                      value={tipPaymentMethod}
-                    />
-                  )}
-                </div>
-              )}
+                      {tipCents > 0 && (
+                        <PaymentMethodSelector
+                          legend="Forma de pagamento da gorjeta"
+                          name="pack-tip-payment-method"
+                          onChange={(method) => {
+                            if (method) setTipPaymentMethod(method);
+                          }}
+                          value={tipPaymentMethod}
+                        />
+                      )}
+                    </div>
+                  </m.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <label className="grid gap-1 text-sm font-bold text-[#34443a]">
@@ -400,34 +417,36 @@ export function PackPurchaseModal({
                 variant="error"
               />
             )}
+          </div>
 
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <Button
-                disabled={submitting}
-                onClick={onClose}
-                type="button"
-                variant="secondary"
-              >
-                Cancelar
-              </Button>
-              <Button
-                disabled={submitting || !selectedPlanId || !paymentMethod}
-                type="submit"
-              >
-                {submitting
+          <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-5 pt-3 pb-4">
+            <Button
+              className="!min-h-11 h-11 px-4 text-sm whitespace-nowrap"
+              disabled={submitting}
+              onClick={onClose}
+              type="button"
+              variant="secondary"
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="!min-h-11 h-11 px-3 text-xs whitespace-nowrap sm:text-sm"
+              disabled={submitting || !selectedPlanId || !paymentMethod}
+              type="submit"
+            >
+              {submitting
+                ? redeemFirstCut
+                  ? "Ativando e debitando..."
+                  : "Ativando..."
+                : selectedPlan
                   ? redeemFirstCut
-                    ? "Ativando e debitando 1º corte..."
-                    : "Ativando..."
-                  : selectedPlan
-                    ? redeemFirstCut
-                      ? `Confirmar pacote + 1º corte (${formatCurrency(selectedPlan.priceCents)})`
-                      : `Confirmar ${formatCurrency(selectedPlan.priceCents)}`
-                    : "Confirmar pacote"}
-              </Button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+                    ? `Ativar + 1º corte (${formatCurrency(selectedPlan.priceCents)})`
+                    : `Confirmar ${formatCurrency(selectedPlan.priceCents)}`
+                  : "Confirmar pacote"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </ModalOverlay>
   );
 }

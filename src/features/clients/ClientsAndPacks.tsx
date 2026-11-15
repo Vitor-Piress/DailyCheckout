@@ -12,6 +12,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 import { subscribeClientInvalidation } from "../../api/clientInvalidation";
 import { getClient, listClients } from "../../api/dailyCheckoutApi";
@@ -238,7 +239,7 @@ export function ClientsAndPacks() {
         </div>
 
         <Button
-          className="flex shrink-0 items-center gap-2"
+          className="!min-h-11 h-11 flex shrink-0 items-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
           onClick={() => {
             setEditingClient(null);
             setRegistrationModalOpen(true);
@@ -353,21 +354,28 @@ export function ClientsAndPacks() {
               pack?.status === "exhausted" ||
               pack?.needsRenewal === true ||
               (pack !== null && pack.remainingCuts <= 0);
+            const packProgressPercent =
+              pack && pack.totalCuts > 0
+                ? Math.min(
+                    100,
+                    Math.round((pack.usedCuts / pack.totalCuts) * 100),
+                  )
+                : 0;
 
             return (
               <Panel
-                className="grid gap-3.5 !p-4 transition hover:border-[#9fc2a7]"
+                className="grid gap-3 !p-4 transition hover:border-[#9fc2a7]"
                 key={client.id}
               >
-                <div className="flex flex-wrap items-start justify-between gap-2.5">
-                  <div className="grid min-w-0 gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-lg leading-snug text-[#17211b]">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <strong className="truncate text-base leading-snug text-[#17211b] sm:text-lg">
                         {client.name}
                       </strong>
                       <button
                         aria-label={`Editar dados de ${client.name}`}
-                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[#dce5dd] bg-[#f5f7f4] px-2 text-xs font-bold text-[#4a7957] transition hover:border-[#4a7957] hover:bg-[#e8f2ea]"
+                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#dce5dd] bg-[#f5f7f4] px-2 text-xs font-bold whitespace-nowrap text-[#4a7957] transition hover:border-[#4a7957] hover:bg-[#e8f2ea]"
                         onClick={() => {
                           setEditingClient(client);
                           setRegistrationModalOpen(true);
@@ -382,32 +390,32 @@ export function ClientsAndPacks() {
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-[#617067]">
                       <span className="inline-flex items-center gap-1 font-bold text-[#34443a]">
-                        <Phone className="text-[#4a7957]" size={13} />
+                        <Phone className="shrink-0 text-[#4a7957]" size={13} />
                         {formatPhone(client.phone)}
                       </span>
                       {client.cpf && <span>CPF: {formatCpf(client.cpf)}</span>}
-                      {client.email && <span>{client.email}</span>}
+                      {client.email && (
+                        <span className="truncate">{client.email}</span>
+                      )}
                     </div>
                   </div>
 
                   {hasActivePack && pack && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#9fc2a7] bg-[#e8f2ea] px-3 py-1 text-xs font-extrabold text-[#245c35]">
-                      <CheckCircle2 size={15} />
-                      <span>
-                        {pack.remainingCuts}/{pack.totalCuts} cortes restantes
-                      </span>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#9fc2a7] bg-[#e8f2ea] px-2.5 py-1 text-xs font-extrabold whitespace-nowrap text-[#245c35]">
+                      <CheckCircle2 size={14} />
+                      <span>Pacote ativo</span>
                     </span>
                   )}
 
                   {isExhausted && pack && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ead9a6] bg-[#fff4d6] px-3 py-1 text-xs font-extrabold text-[#805d12]">
-                      <AlertTriangle size={15} />
-                      <span>Pacote esgotado • Renovar</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ead9a6] bg-[#fff4d6] px-2.5 py-1 text-xs font-extrabold whitespace-nowrap text-[#805d12]">
+                      <AlertTriangle size={14} />
+                      <span>Pacote esgotado</span>
                     </span>
                   )}
 
                   {!pack && (
-                    <span className="inline-flex items-center rounded-full border border-[#dce5dd] bg-[#f5f7f4] px-3 py-1 text-xs font-bold text-[#617067]">
+                    <span className="inline-flex shrink-0 items-center rounded-full border border-[#dce5dd] bg-[#f5f7f4] px-2.5 py-1 text-xs font-bold whitespace-nowrap text-[#617067]">
                       Sem pacote ativo
                     </span>
                   )}
@@ -415,90 +423,76 @@ export function ClientsAndPacks() {
 
                 {pack && (
                   <div
-                    className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-xs ${
+                    className={`grid gap-2 rounded-xl border px-3.5 py-2.5 text-xs ${
                       hasActivePack
                         ? "border-[#c8d6ca] bg-[#f5f7f4] text-[#23372a]"
                         : "border-[#ead9a6] bg-[#fff9e8] text-[#805d12]"
                     }`}
                   >
-                    <span>
-                      Plano: <strong>{pack.planName}</strong> · Usados:{" "}
-                      <strong>
-                        {pack.usedCuts} de {pack.totalCuts}
-                      </strong>
-                    </span>
-                    <span className="font-bold">
-                      {hasActivePack
-                        ? `Restam ${pack.remainingCuts} ${pack.remainingCuts === 1 ? "corte" : "cortes"}`
-                        : "0 cortes restantes"}
-                    </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold">{pack.planName}</span>
+                      <span className="font-bold">
+                        {hasActivePack
+                          ? `${pack.usedCuts}/${pack.totalCuts} usados · Restam ${pack.remainingCuts} ${pack.remainingCuts === 1 ? "corte" : "cortes"}`
+                          : `${pack.usedCuts}/${pack.totalCuts} usados · Renovar`}
+                      </span>
+                    </div>
+                    <div
+                      className={`h-1.5 w-full overflow-hidden rounded-full ${
+                        hasActivePack ? "bg-[#dce5dd]" : "bg-[#f0e0b2]"
+                      }`}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          hasActivePack ? "bg-[#2f6840]" : "bg-[#c18b20]"
+                        }`}
+                        style={{ width: `${packProgressPercent}%` }}
+                      />
+                    </div>
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <div className="grid grid-cols-[1fr_auto] items-center gap-2 pt-0.5">
                   {hasActivePack ? (
-                    <>
-                      <Button
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 px-4 py-2 text-sm"
-                        onClick={() => setRedeemTargetClient(client)}
-                        type="button"
-                      >
-                        <Scissors size={17} />
-                        <span>Descontar 1 Corte</span>
-                      </Button>
-                      <Button
-                        className="flex min-h-11 items-center justify-center gap-1.5 px-3.5 py-2 text-sm"
-                        onClick={() => setHistoryTargetClient(client)}
-                        type="button"
-                        variant="secondary"
-                      >
-                        <ClipboardCheck size={17} />
-                        <span>Histórico</span>
-                      </Button>
-                    </>
+                    <Button
+                      className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                      onClick={() => setRedeemTargetClient(client)}
+                      type="button"
+                    >
+                      <Scissors size={16} />
+                      <span>Descontar 1 Corte</span>
+                    </Button>
                   ) : isExhausted ? (
-                    <>
-                      <Button
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 px-4 py-2 text-sm"
-                        onClick={() => setPurchaseTargetClient(client)}
-                        type="button"
-                      >
-                        <PackagePlus size={17} />
-                        <span>Renovar Pacote</span>
-                      </Button>
-                      <Button
-                        className="flex min-h-11 items-center justify-center gap-1.5 px-3.5 py-2 text-sm"
-                        onClick={() => setHistoryTargetClient(client)}
-                        type="button"
-                        variant="secondary"
-                      >
-                        <ClipboardCheck size={17} />
-                        <span>Histórico</span>
-                      </Button>
-                    </>
+                    <Button
+                      className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                      onClick={() => setPurchaseTargetClient(client)}
+                      type="button"
+                    >
+                      <PackagePlus size={16} />
+                      <span>Renovar Pacote</span>
+                    </Button>
                   ) : (
-                    <>
-                      <Button
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 px-4 py-2 text-sm"
-                        onClick={() => setPurchaseTargetClient(client)}
-                        type="button"
-                        variant="secondary"
-                      >
-                        <PackagePlus size={17} />
-                        <span>Vender Pacote</span>
-                      </Button>
-                      <Button
-                        className="flex min-h-11 items-center justify-center gap-1.5 px-3.5 py-2 text-sm"
-                        onClick={() => setHistoryTargetClient(client)}
-                        title="Ver detalhes e histórico do cliente"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <ClipboardCheck size={17} />
-                        <span>Histórico</span>
-                      </Button>
-                    </>
+                    <Button
+                      className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                      onClick={() => setPurchaseTargetClient(client)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      <PackagePlus size={16} />
+                      <span>Vender Pacote</span>
+                    </Button>
                   )}
+
+                  <Button
+                    className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                    onClick={() => setHistoryTargetClient(client)}
+                    title="Ver detalhes e histórico do cliente"
+                    type="button"
+                    variant="secondary"
+                  >
+                    <ClipboardCheck size={16} />
+                    <span>Histórico</span>
+                  </Button>
                 </div>
               </Panel>
             );
@@ -520,49 +514,60 @@ export function ClientsAndPacks() {
         </div>
       )}
 
-      {registrationModalOpen && (
-        <ClientRegistrationModal
-          editingClient={editingClient}
-          initialName={
-            !editingClient && debouncedQuery && !/\d/.test(debouncedQuery)
-              ? debouncedQuery
-              : ""
-          }
-          onClose={() => {
-            setRegistrationModalOpen(false);
-            setEditingClient(null);
-          }}
-          onSaved={handleClientSaved}
-        />
-      )}
+      <AnimatePresence>
+        {registrationModalOpen && (
+          <ClientRegistrationModal
+            editingClient={editingClient}
+            initialName={
+              !editingClient && debouncedQuery && !/\d/.test(debouncedQuery)
+                ? debouncedQuery
+                : ""
+            }
+            key={editingClient?.id ?? "new-client"}
+            onClose={() => {
+              setRegistrationModalOpen(false);
+              setEditingClient(null);
+            }}
+            onSaved={handleClientSaved}
+          />
+        )}
+      </AnimatePresence>
 
-      {purchaseTargetClient && (
-        <PackPurchaseModal
-          client={purchaseTargetClient}
-          onClose={() => setPurchaseTargetClient(null)}
-          onPurchased={handlePackPurchased}
-        />
-      )}
+      <AnimatePresence>
+        {redeemTargetClient && (
+          <PackRedeemModal
+            client={redeemTargetClient}
+            key={redeemTargetClient.id}
+            onClose={() => setRedeemTargetClient(null)}
+            onRedeemed={handlePackRedeemed}
+          />
+        )}
+      </AnimatePresence>
 
-      {redeemTargetClient && (
-        <PackRedeemModal
-          client={redeemTargetClient}
-          onClose={() => setRedeemTargetClient(null)}
-          onRedeemed={handlePackRedeemed}
-        />
-      )}
+      <AnimatePresence>
+        {historyTargetClient && (
+          <ClientDetailsModal
+            client={historyTargetClient}
+            key={historyTargetClient.id}
+            onClientUpdated={upsertClientInList}
+            onClose={() => setHistoryTargetClient(null)}
+            onRequestRenew={(targetClient) =>
+              setPurchaseTargetClient(targetClient)
+            }
+          />
+        )}
+      </AnimatePresence>
 
-      {historyTargetClient && (
-        <ClientDetailsModal
-          client={historyTargetClient}
-          key={historyTargetClient.id}
-          onClientUpdated={upsertClientInList}
-          onClose={() => setHistoryTargetClient(null)}
-          onRequestRenew={(targetClient) =>
-            setPurchaseTargetClient(targetClient)
-          }
-        />
-      )}
+      <AnimatePresence>
+        {purchaseTargetClient && (
+          <PackPurchaseModal
+            client={purchaseTargetClient}
+            key={purchaseTargetClient.id}
+            onClose={() => setPurchaseTargetClient(null)}
+            onPurchased={handlePackPurchased}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 }

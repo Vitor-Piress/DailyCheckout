@@ -96,7 +96,7 @@ export function ClientServiceHistoryTab({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           aria-label="Filtrar atendimentos por tipo"
-          className="flex flex-wrap items-center gap-1.5"
+          className="flex w-full min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 whitespace-nowrap sm:w-auto"
           role="group"
         >
           {filterChips.map((chip) => {
@@ -104,7 +104,7 @@ export function ClientServiceHistoryTab({
             return (
               <button
                 aria-pressed={active}
-                className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                className={`inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
                   active
                     ? "border-[#2f6840] bg-[#2f6840] text-white"
                     : "border-[#dce5dd] bg-[#f5f7f4] text-[#34443a] hover:border-[#4a7957] hover:bg-[#e8f2ea]"
@@ -116,7 +116,7 @@ export function ClientServiceHistoryTab({
                 <span>{chip.label}</span>
                 {chip.count !== null && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none ${
+                    className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none tabular-nums ${
                       active
                         ? "bg-white/20 text-white"
                         : "bg-white text-[#2f6840]"
@@ -200,22 +200,6 @@ export function ClientServiceHistoryTab({
                         {item.serviceName}
                       </strong>
 
-                      {item.isPackCut ? (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
-                          <PackageCheck size={12} />
-                          <span>
-                            {item.packPlanName
-                              ? `Pacote · ${item.packPlanName}`
-                              : "Pacote"}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-[#dce5dd] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#617067]">
-                          <Scissors size={11} />
-                          <span>Avulso</span>
-                        </span>
-                      )}
-
                       {isCanceled && (
                         <span className="rounded-md border border-[#e7b0a7] bg-[#fbeaea] px-2 py-0.5 text-[11px] font-bold text-[#a83e3e]">
                           Cancelado
@@ -230,7 +214,7 @@ export function ClientServiceHistoryTab({
                             ? `Estornar corte ${item.serviceName}`
                             : `Cancelar atendimento ${item.serviceName}`
                         }
-                        className="inline-flex min-h-7 shrink-0 items-center gap-1 rounded-md border border-[#e7b0a7] bg-white px-2 py-1 text-[11px] font-bold text-[#a83e3e] transition hover:bg-[#fbeaea] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#e7b0a7] bg-white px-2.5 text-[11px] font-bold whitespace-nowrap text-[#a83e3e] transition hover:bg-[#fbeaea] disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={
                           disabledActions || Boolean(cancelingRecordId)
                         }
@@ -242,7 +226,7 @@ export function ClientServiceHistoryTab({
                         }
                         type="button"
                       >
-                        <RotateCcw size={12} />
+                        <RotateCcw className="shrink-0" size={12} />
                         <span>
                           {isCanceling
                             ? item.isPackCut
@@ -256,24 +240,39 @@ export function ClientServiceHistoryTab({
                     )}
                   </div>
 
-                  {(!item.isPackCut || tipCents > 0) && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      {!item.isPackCut && (
-                        <span className="font-bold text-[#23372a]">
-                          {formatCurrency(item.priceCents)}
-                          {item.paymentMethod
-                            ? ` · ${paymentMethodLabel(item.paymentMethod)}`
-                            : ""}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {item.isPackCut ? (
+                      <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
+                        <PackageCheck className="shrink-0" size={12} />
+                        <span className="truncate">
+                          {item.packPlanName
+                            ? `Pacote · ${item.packPlanName}`
+                            : "Pacote"}
                         </span>
-                      )}
-                      {tipCents > 0 && (
-                        <span className="rounded-md border border-[#9fc2a7] bg-white px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
-                          + {formatCurrency(tipCents)} gorjeta
-                          {tipMethodSuffix}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-[#dce5dd] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#617067]">
+                        <Scissors className="shrink-0" size={11} />
+                        <span>Avulso</span>
+                      </span>
+                    )}
+
+                    {!item.isPackCut && (
+                      <span className="font-bold text-[#23372a]">
+                        {formatCurrency(item.priceCents)}
+                        {item.paymentMethod
+                          ? ` · ${paymentMethodLabel(item.paymentMethod)}`
+                          : ""}
+                      </span>
+                    )}
+
+                    {tipCents > 0 && (
+                      <span className="rounded-md border border-[#9fc2a7] bg-white px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
+                        + {formatCurrency(tipCents)} gorjeta
+                        {tipMethodSuffix}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#617067]">
                     <span className="inline-flex items-center gap-1">

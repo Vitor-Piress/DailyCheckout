@@ -1,3 +1,4 @@
+import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   MotionContext,
@@ -43,6 +44,15 @@ export function MotionProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <MotionContext.Provider value={value}>{children}</MotionContext.Provider>
+    <MotionContext.Provider value={value}>
+      <LazyMotion features={domAnimation} strict>
+        <MotionConfig
+          reducedMotion={animationsEnabled ? "never" : "always"}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </MotionConfig>
+      </LazyMotion>
+    </MotionContext.Provider>
   );
 }

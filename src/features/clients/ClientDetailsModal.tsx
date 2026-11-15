@@ -7,6 +7,7 @@ import {
   Scissors,
   X,
 } from "lucide-react";
+import { m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { subscribeClientInvalidation } from "../../api/clientInvalidation";
 import {
@@ -29,6 +30,7 @@ import { useAuth } from "../../auth/authContext";
 import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
+import { ModalOverlay } from "../../components/ui/ModalOverlay";
 import { getApiErrorMessage } from "../../lib/errors";
 import {
   formatCpf,
@@ -124,21 +126,6 @@ export function ClientDetailsModal({
   useEffect(() => {
     selectedPackIdRef.current = selectedPackId;
   }, [selectedPackId]);
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (
-        event.key === "Escape" &&
-        !redeemingPackCut &&
-        !cancelingRecordId &&
-        !cancelingPack
-      ) {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, redeemingPackCut, cancelingRecordId, cancelingPack]);
 
   useEffect(() => {
     let active = true;
@@ -662,288 +649,309 @@ export function ClientDetailsModal({
     redeemingPackCut || Boolean(cancelingRecordId) || cancelingPack;
 
   return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
-      role="dialog"
+    <ModalOverlay
+      disabled={busyMutating}
+      maxWidthClass="max-w-[38rem]"
+      onClose={onClose}
     >
-      <div className="motion-content flex max-h-[92vh] w-full max-w-[38rem] flex-col overflow-hidden rounded-t-2xl border border-[#dce5dd] bg-white shadow-2xl sm:rounded-2xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-5 pt-4 pb-3.5">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
-              <ClipboardCheck size={20} />
-            </div>
-            <div className="min-w-0">
-              <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                Detalhes & Histórico
-              </p>
-              <h2 className="m-0 truncate text-lg font-bold text-[#17211b]">
-                {currentClient.name}
-              </h2>
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#617067]">
-                <span className="inline-flex items-center gap-1 font-semibold text-[#34443a]">
-                  <Phone className="text-[#4a7957]" size={12} />
-                  {formatPhone(currentClient.phone)}
-                </span>
-                {currentClient.cpf && (
-                  <span>CPF: {formatCpf(currentClient.cpf)}</span>
-                )}
-              </div>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-5 pt-4 pb-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
+            <ClipboardCheck size={20} />
+          </div>
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
+              Detalhes & Histórico
+            </p>
+            <h2 className="m-0 truncate text-lg font-bold text-[#17211b]">
+              {currentClient.name}
+            </h2>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#617067]">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#34443a]">
+                <Phone className="text-[#4a7957]" size={12} />
+                {formatPhone(currentClient.phone)}
+              </span>
+              {currentClient.cpf && (
+                <span>CPF: {formatCpf(currentClient.cpf)}</span>
+              )}
             </div>
           </div>
-
-          <IconButton
-            aria-label="Fechar"
-            disabled={busyMutating}
-            icon={<X size={18} />}
-            onClick={onClose}
-            type="button"
-          />
         </div>
 
-        <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
-          {actionFeedback && (
-            <FeedbackMessage
-              message={actionFeedback}
-              onClose={() => setActionFeedback(null)}
-            />
-          )}
+        <IconButton
+          aria-label="Fechar"
+          disabled={busyMutating}
+          icon={<X size={18} />}
+          onClick={onClose}
+          type="button"
+        />
+      </div>
 
-          {actionError && (
-            <FeedbackMessage
-              message={actionError}
-              onClose={() => setActionError(null)}
-              variant="error"
-            />
-          )}
+      <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
+        {actionFeedback && (
+          <FeedbackMessage
+            message={actionFeedback}
+            onClose={() => setActionFeedback(null)}
+          />
+        )}
 
-          {/* 1. Faixa de Resumo Rápido */}
-          <div
-            aria-label="Resumo rápido de atendimentos"
-            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-          >
-            <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-              <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
-                Atendimentos
-              </span>
-              <strong className="text-base font-extrabold text-[#17211b]">
-                {summary ? summary.totalServicesCount : "—"}
-              </strong>
-            </div>
+        {actionError && (
+          <FeedbackMessage
+            message={actionError}
+            onClose={() => setActionError(null)}
+            variant="error"
+          />
+        )}
 
-            <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-              <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
-                Avulsos
-              </span>
-              <strong className="text-base font-extrabold text-[#17211b]">
-                {summary ? summary.standaloneServicesCount : "—"}
-              </strong>
-            </div>
-
-            <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-              <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
-                Via pacote
-              </span>
-              <strong className="text-base font-extrabold text-[#2f6840]">
-                {summary ? summary.packServicesCount : "—"}
-              </strong>
-            </div>
-
-            <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-              <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
-                Última visita
-              </span>
-              <strong className="text-base font-extrabold text-[#17211b]">
-                {summary ? formatDayMonthSaoPaulo(summary.lastServiceAt) : "—"}
-              </strong>
-            </div>
+        {/* 1. Faixa de Resumo Rápido */}
+        <div
+          aria-label="Resumo rápido de atendimentos"
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+        >
+          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+              Atendimentos
+            </span>
+            <strong className="text-base font-extrabold text-[#17211b]">
+              {summary ? summary.totalServicesCount : "—"}
+            </strong>
           </div>
 
-          {/* 2. Card de Pacote Ativo (quando aplicável) */}
-          {hasActivePack && activePack && (
-            <div className="grid gap-2.5 rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[#245c35]">
-                  <CheckCircle2 className="shrink-0" size={17} />
-                  <span className="truncate">{activePack.planName}</span>
-                </div>
-                <span className="shrink-0 rounded-full bg-[#2f6840] px-2.5 py-0.5 text-xs font-bold text-white">
-                  {activePack.usedCuts}/{activePack.totalCuts} cortes
-                </span>
-              </div>
+          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+              Avulsos
+            </span>
+            <strong className="text-base font-extrabold text-[#17211b]">
+              {summary ? summary.standaloneServicesCount : "—"}
+            </strong>
+          </div>
 
-              <div className="h-2 w-full overflow-hidden rounded-full bg-[#c9dfcd]">
-                <div
-                  className="h-full rounded-full bg-[#2f6840] transition-all duration-300"
-                  style={{ width: `${activePackProgress}%` }}
-                />
-              </div>
+          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+              Via pacote
+            </span>
+            <strong className="text-base font-extrabold text-[#2f6840]">
+              {summary ? summary.packServicesCount : "—"}
+            </strong>
+          </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <span className="text-xs font-bold text-[#23372a]">
-                  Restam {activePack.remainingCuts}{" "}
-                  {activePack.remainingCuts === 1 ? "corte" : "cortes"} no saldo
+          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+              Última visita
+            </span>
+            <strong className="text-base font-extrabold text-[#17211b]">
+              {summary ? formatDayMonthSaoPaulo(summary.lastServiceAt) : "—"}
+            </strong>
+          </div>
+        </div>
+
+        {/* 2. Card de Pacote Ativo (quando aplicável) */}
+        {hasActivePack && activePack && (
+          <div className="grid gap-2.5 rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[#245c35]">
+                <CheckCircle2 className="shrink-0" size={17} />
+                <span className="truncate">{activePack.planName}</span>
+              </div>
+              <span className="shrink-0 rounded-full bg-[#2f6840] px-2.5 py-0.5 text-xs font-bold whitespace-nowrap text-white">
+                {activePack.usedCuts}/{activePack.totalCuts} cortes
+              </span>
+            </div>
+
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[#c9dfcd]">
+              <div
+                className="h-full rounded-full bg-[#2f6840] transition-all duration-300"
+                style={{ width: `${activePackProgress}%` }}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <span className="text-xs font-bold text-[#23372a]">
+                Restam {activePack.remainingCuts}{" "}
+                {activePack.remainingCuts === 1 ? "corte" : "cortes"} no saldo
+              </span>
+              <Button
+                className="!min-h-10 h-10 flex w-full items-center justify-center gap-1.5 px-3.5 py-2 text-xs whitespace-nowrap sm:w-auto"
+                disabled={busyMutating}
+                onClick={() => void handleQuickRedeemCut()}
+                type="button"
+              >
+                <Scissors size={15} />
+                <span>
+                  {redeemingPackCut
+                    ? "Descontando corte..."
+                    : "Descontar 1 Corte"}
                 </span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isExhaustedPack && activePack && (
+          <div className="grid gap-2.5 rounded-xl border border-[#ead9a6] bg-[#fff4d6] p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[#805d12]">
+                <AlertTriangle className="shrink-0" size={17} />
+                <span className="truncate">{activePack.planName} · Esgotado</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-[#805d12] px-2.5 py-0.5 text-xs font-bold whitespace-nowrap text-white">
+                {activePack.usedCuts}/{activePack.totalCuts} cortes
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-[#6e4f0e]">
+                Todos os cortes deste pacote foram utilizados.
+              </span>
+              {onRequestRenew && (
                 <Button
-                  className="!min-h-10 flex w-full items-center justify-center gap-1.5 px-3.5 py-2 text-xs sm:w-auto"
+                  className="!min-h-10 h-10 flex w-full items-center justify-center gap-1.5 px-3.5 py-2 text-xs whitespace-nowrap sm:w-auto"
                   disabled={busyMutating}
-                  onClick={() => void handleQuickRedeemCut()}
+                  onClick={() => {
+                    onClose();
+                    onRequestRenew(currentClient);
+                  }}
                   type="button"
                 >
-                  <Scissors size={15} />
-                  <span>
-                    {redeemingPackCut
-                      ? "Descontando corte..."
-                      : "Descontar 1 Corte"}
-                  </span>
+                  <PackagePlus size={15} />
+                  <span>Renovar Pacote</span>
                 </Button>
-              </div>
+              )}
             </div>
-          )}
-
-          {isExhaustedPack && activePack && (
-            <div className="grid gap-2.5 rounded-xl border border-[#ead9a6] bg-[#fff4d6] p-3.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#805d12]">
-                  <AlertTriangle className="shrink-0" size={17} />
-                  <span>{activePack.planName} · Esgotado</span>
-                </span>
-                <span className="rounded-full bg-[#805d12] px-2.5 py-0.5 text-xs font-bold text-white">
-                  {activePack.usedCuts}/{activePack.totalCuts} cortes
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium text-[#6e4f0e]">
-                  Todos os cortes deste pacote foram utilizados.
-                </span>
-                {onRequestRenew && (
-                  <Button
-                    className="!min-h-10 flex w-full items-center justify-center gap-1.5 px-3.5 py-2 text-xs sm:w-auto"
-                    disabled={busyMutating}
-                    onClick={() => {
-                      onClose();
-                      onRequestRenew(currentClient);
-                    }}
-                    type="button"
-                  >
-                    <PackagePlus size={15} />
-                    <span>Renovar Pacote</span>
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Segmented Control / 2 Abas Compactas */}
-          <div
-            aria-label="Seções do histórico do cliente"
-            className="grid grid-cols-2 gap-1 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-1"
-            role="tablist"
-          >
-            <button
-              aria-selected={activeTab === "services"}
-              className={`min-h-10 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                activeTab === "services"
-                  ? "bg-white text-[#2f6840] shadow-xs"
-                  : "text-[#617067] hover:text-[#23372a]"
-              }`}
-              onClick={() => setActiveTab("services")}
-              role="tab"
-              type="button"
-            >
-              Atendimentos
-              {summary ? ` (${summary.totalServicesCount})` : ""}
-            </button>
-            <button
-              aria-selected={activeTab === "packs"}
-              className={`min-h-10 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                activeTab === "packs"
-                  ? "bg-white text-[#2f6840] shadow-xs"
-                  : "text-[#617067] hover:text-[#23372a]"
-              }`}
-              onClick={() => setActiveTab("packs")}
-              role="tab"
-              type="button"
-            >
-              Pacotes
-              {!packsLoading && !packsError ? ` (${packs.length})` : ""}
-            </button>
           </div>
+        )}
 
-          {activeTab === "services" ? (
-            <ClientServiceHistoryTab
-              cancelingRecordId={cancelingRecordId}
-              disabledActions={busyMutating}
-              error={serviceError}
-              filterType={filterType}
-              includeCanceled={includeCanceled}
-              items={serviceItems}
-              loadMoreError={serviceLoadMoreError}
-              loading={serviceLoading}
-              loadingMore={serviceLoadingMore}
-              onCancelRecord={(item) =>
-                void handleCancelRecord(
-                  item.id,
-                  item.isPackCut,
-                  item.serviceName,
-                )
-              }
-              onDismissError={() => setServiceError(null)}
-              onDismissLoadMoreError={() => setServiceLoadMoreError(null)}
-              onFilterTypeChange={handleFilterTypeChange}
-              onLoadMore={() => void handleLoadMoreRecords()}
-              onRetry={handleRetryServiceRecords}
-              onToggleIncludeCanceled={handleToggleIncludeCanceled}
-              summary={summary}
-              total={serviceTotal}
-            />
-          ) : (
-            <ClientPacksTab
-              cancelingCutId={cancelingRecordId}
-              cancelingPack={cancelingPack}
-              detailError={packDetailError}
-              disabledActions={busyMutating}
-              error={packsError}
-              loading={packsLoading}
-              loadingDetail={loadingPackDetail}
-              onCancelConsumption={(consumptionId) =>
-                void handleCancelRecord(
-                  consumptionId,
-                  true,
-                  "Corte Masculino",
-                )
-              }
-              onCancelPack={(pack) => void handleCancelPack(pack)}
-              onDismissDetailError={() => setPackDetailError(null)}
-              onDismissError={() => setPacksError(null)}
-              onRequestNewPack={
-                onRequestRenew
-                  ? () => {
-                      onClose();
-                      onRequestRenew(currentClient);
-                    }
-                  : undefined
-              }
-              onRetry={handleRetryPacks}
-              onSelectPack={(packId) => void handleSelectPack(packId)}
-              packs={packs}
-              selectedPackDetail={selectedPackDetail}
-              selectedPackId={selectedPackId}
-            />
-          )}
+        {/* 3. Segmented Control / 2 Abas Compactas */}
+        <div
+          aria-label="Seções do histórico do cliente"
+          className="grid grid-cols-2 gap-1 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-1"
+          role="tablist"
+        >
+          {(
+            [
+              {
+                id: "services",
+                label: "Atendimentos",
+                count: summary ? summary.totalServicesCount : null,
+              },
+              {
+                id: "packs",
+                label: "Pacotes",
+                count: !packsLoading && !packsError ? packs.length : null,
+              },
+            ] as const
+          ).map((tab) => {
+            const selected = activeTab === tab.id;
+            return (
+              <button
+                aria-selected={selected}
+                className={`relative inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
+                  selected
+                    ? "text-[#2f6840]"
+                    : "text-[#617067] hover:text-[#23372a]"
+                }`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                type="button"
+              >
+                {selected && (
+                  <m.span
+                    className="absolute inset-0 rounded-lg bg-white shadow-xs"
+                    layoutId={`client-details-tab-pill-${client.id}`}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+                {tab.count !== null && (
+                  <span
+                    className={`relative z-10 rounded-full px-1.5 py-0.5 text-[11px] leading-none ${
+                      selected
+                        ? "bg-[#e8f2ea] text-[#2f6840]"
+                        : "bg-white/80 text-[#617067]"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex shrink-0 justify-end border-t border-[#e8eee9] bg-[#f5f7f4] px-5 py-3">
-          <Button
-            disabled={busyMutating}
-            onClick={onClose}
-            type="button"
-            variant="secondary"
-          >
-            Fechar
-          </Button>
-        </div>
+        {activeTab === "services" ? (
+          <ClientServiceHistoryTab
+            cancelingRecordId={cancelingRecordId}
+            disabledActions={busyMutating}
+            error={serviceError}
+            filterType={filterType}
+            includeCanceled={includeCanceled}
+            items={serviceItems}
+            loadMoreError={serviceLoadMoreError}
+            loading={serviceLoading}
+            loadingMore={serviceLoadingMore}
+            onCancelRecord={(item) =>
+              void handleCancelRecord(
+                item.id,
+                item.isPackCut,
+                item.serviceName,
+              )
+            }
+            onDismissError={() => setServiceError(null)}
+            onDismissLoadMoreError={() => setServiceLoadMoreError(null)}
+            onFilterTypeChange={handleFilterTypeChange}
+            onLoadMore={() => void handleLoadMoreRecords()}
+            onRetry={handleRetryServiceRecords}
+            onToggleIncludeCanceled={handleToggleIncludeCanceled}
+            summary={summary}
+            total={serviceTotal}
+          />
+        ) : (
+          <ClientPacksTab
+            cancelingCutId={cancelingRecordId}
+            cancelingPack={cancelingPack}
+            detailError={packDetailError}
+            disabledActions={busyMutating}
+            error={packsError}
+            loading={packsLoading}
+            loadingDetail={loadingPackDetail}
+            onCancelConsumption={(consumptionId) =>
+              void handleCancelRecord(
+                consumptionId,
+                true,
+                "Corte Masculino",
+              )
+            }
+            onCancelPack={(pack) => void handleCancelPack(pack)}
+            onDismissDetailError={() => setPackDetailError(null)}
+            onDismissError={() => setPacksError(null)}
+            onRequestNewPack={
+              onRequestRenew
+                ? () => {
+                    onClose();
+                    onRequestRenew(currentClient);
+                  }
+                : undefined
+            }
+            onRetry={handleRetryPacks}
+            onSelectPack={(packId) => void handleSelectPack(packId)}
+            packs={packs}
+            selectedPackDetail={selectedPackDetail}
+            selectedPackId={selectedPackId}
+          />
+        )}
       </div>
-    </div>
+
+      <div className="flex shrink-0 justify-end border-t border-[#e8eee9] bg-[#f5f7f4] px-5 py-3">
+        <Button
+          className="!min-h-10 h-10 px-4 py-2 text-sm whitespace-nowrap"
+          disabled={busyMutating}
+          onClick={onClose}
+          type="button"
+          variant="secondary"
+        >
+          Fechar
+        </Button>
+      </div>
+    </ModalOverlay>
   );
 }

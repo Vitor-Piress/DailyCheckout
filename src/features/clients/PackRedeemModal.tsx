@@ -1,4 +1,5 @@
 import { Scissors, X } from "lucide-react";
+import { AnimatePresence, m } from "motion/react";
 import type { FormEvent } from "react";
 import { useRef, useState } from "react";
 import { createServiceRecord, getClient } from "../../api/dailyCheckoutApi";
@@ -7,6 +8,7 @@ import { Button } from "../../components/ui/Button";
 import { CurrencyInput } from "../../components/ui/CurrencyInput";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
+import { ModalOverlay } from "../../components/ui/ModalOverlay";
 import { getApiErrorMessage } from "../../lib/errors";
 import { formatCurrency } from "../../lib/formatters";
 import { PaymentMethodSelector } from "../operation/PaymentMethodSelector";
@@ -112,44 +114,46 @@ export function PackRedeemModal({
   }
 
   return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
-      role="dialog"
+    <ModalOverlay
+      disabled={submitting}
+      maxWidthClass="max-w-[30rem]"
+      onClose={onClose}
     >
-      <div className="motion-content max-h-[92vh] w-full max-w-[30rem] overflow-y-auto rounded-t-2xl border border-[#dce5dd] bg-white p-5 shadow-2xl sm:rounded-2xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
-              <Scissors size={20} />
-            </div>
-            <div>
-              <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                Descontar corte do pacote
-              </p>
-              <h2 className="m-0 text-lg font-bold text-[#17211b]">
-                {client.name}
-              </h2>
-            </div>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-5 pt-4 pb-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
+            <Scissors size={20} />
           </div>
-          <IconButton
-            aria-label="Fechar"
-            icon={<X size={18} />}
-            onClick={onClose}
-            type="button"
-          />
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-bold tracking-[0.08em] text-[#4a7957] uppercase">
+              Descontar corte do pacote
+            </p>
+            <h2 className="m-0 truncate text-lg font-bold text-[#17211b]">
+              {client.name}
+            </h2>
+          </div>
         </div>
+        <IconButton
+          aria-label="Fechar"
+          className="shrink-0"
+          disabled={submitting}
+          icon={<X size={18} />}
+          onClick={onClose}
+          type="button"
+        />
+      </div>
 
-        <form
-          className="grid gap-4"
-          onSubmit={(event) => void handleSubmit(event)}
-        >
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
+        <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
           <div className="rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
             <div className="flex items-center justify-between gap-2">
-              <strong className="text-sm text-[#17211b]">
+              <strong className="min-w-0 truncate text-sm text-[#17211b]">
                 {activePack.planName}
               </strong>
-              <span className="rounded-full bg-[#2f6840] px-2.5 py-0.5 text-xs font-bold text-white">
+              <span className="shrink-0 rounded-full bg-[#2f6840] px-2.5 py-0.5 text-xs font-bold whitespace-nowrap text-white">
                 Restam {activePack.remainingCuts} de {activePack.totalCuts}
               </span>
             </div>
@@ -175,41 +179,51 @@ export function PackRedeemModal({
             <span>Incluir gorjeta neste corte</span>
           </label>
 
-          {includeTip && (
-            <div className="motion-content grid gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
-              <label className="grid gap-1 text-sm font-bold text-[#34443a]">
-                Valor da gorjeta
-                <CurrencyInput
-                  className="min-h-12 w-full rounded-[0.6rem] border border-[#c8d6ca] bg-white px-3.5 py-2.5 text-lg font-bold tracking-tight text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
-                  maxDigits={7}
-                  onChangeCents={(nextCents) => {
-                    setTipCents(nextCents);
-                    if (error) setError(null);
-                  }}
-                  ref={tipInputRef}
-                  valueCents={tipCents}
-                />
-                <span className="text-xs font-normal text-[#617067]">
-                  Gorjeta 100% destinada ao barbeiro ({formatCurrency(tipCents)}
-                  ).
-                </span>
-              </label>
+          <AnimatePresence initial={false}>
+            {includeTip && (
+              <m.div
+                animate={{ height: "auto", opacity: 1 }}
+                className="overflow-hidden"
+                exit={{ height: 0, opacity: 0 }}
+                initial={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <div className="grid gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
+                  <label className="grid gap-1 text-sm font-bold text-[#34443a]">
+                    Valor da gorjeta
+                    <CurrencyInput
+                      className="min-h-12 w-full rounded-[0.6rem] border border-[#c8d6ca] bg-white px-3.5 py-2.5 text-lg font-bold tracking-tight text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+                      maxDigits={7}
+                      onChangeCents={(nextCents) => {
+                        setTipCents(nextCents);
+                        if (error) setError(null);
+                      }}
+                      ref={tipInputRef}
+                      valueCents={tipCents}
+                    />
+                    <span className="text-xs font-normal text-[#617067]">
+                      Gorjeta 100% destinada ao barbeiro (
+                      {formatCurrency(tipCents)}).
+                    </span>
+                  </label>
 
-              <div className="rounded-lg bg-white p-3">
-                <PaymentMethodSelector
-                  legend="Forma de pagamento da gorjeta"
-                  name="pack-redeem-tip-method"
-                  onChange={setTipPaymentMethod}
-                  value={tipPaymentMethod}
-                />
-              </div>
-            </div>
-          )}
+                  <div className="rounded-lg bg-white p-3">
+                    <PaymentMethodSelector
+                      legend="Forma de pagamento da gorjeta"
+                      name="pack-redeem-tip-method"
+                      onChange={setTipPaymentMethod}
+                      value={tipPaymentMethod}
+                    />
+                  </div>
+                </div>
+              </m.div>
+            )}
+          </AnimatePresence>
 
           <label className="grid gap-1 text-sm font-bold text-[#34443a]">
             Observações do corte (opcional)
             <input
-              className="min-h-11 w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3 py-2 text-sm text-[#23372a] font-normal focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+              className="min-h-11 w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3 py-2 text-sm font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
               maxLength={250}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Ex.: Degradê navalhado"
@@ -225,22 +239,27 @@ export function PackRedeemModal({
               variant="error"
             />
           )}
+        </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <Button
-              disabled={submitting}
-              onClick={onClose}
-              type="button"
-              variant="secondary"
-            >
-              Cancelar
-            </Button>
-            <Button disabled={submitting} type="submit">
-              {submitting ? "Registrando..." : "Registrar Corte do Pacote"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-5 pt-3 pb-4">
+          <Button
+            className="!min-h-11 h-11 px-4 text-sm whitespace-nowrap"
+            disabled={submitting}
+            onClick={onClose}
+            type="button"
+            variant="secondary"
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="!min-h-11 h-11 text-sm whitespace-nowrap"
+            disabled={submitting}
+            type="submit"
+          >
+            {submitting ? "Registrando..." : "Registrar Corte"}
+          </Button>
+        </div>
+      </form>
+    </ModalOverlay>
   );
 }

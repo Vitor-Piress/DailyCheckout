@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp, UserPlus, X } from "lucide-react";
+import { AnimatePresence, m } from "motion/react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { createClient, updateClient } from "../../api/dailyCheckoutApi";
@@ -6,6 +7,7 @@ import type { Client } from "../../api/types";
 import { Button } from "../../components/ui/Button";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { IconButton } from "../../components/ui/IconButton";
+import { ModalOverlay } from "../../components/ui/ModalOverlay";
 import { getApiErrorMessage } from "../../lib/errors";
 import { maskCpfInput, maskPhoneInput } from "../../lib/formatters";
 
@@ -93,38 +95,40 @@ export function ClientRegistrationModal({
   }
 
   return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
-      role="dialog"
+    <ModalOverlay
+      disabled={submitting}
+      maxWidthClass="max-w-[30rem]"
+      onClose={onClose}
     >
-      <div className="motion-content max-h-[92vh] w-full max-w-[30rem] overflow-y-auto rounded-t-2xl border border-[#dce5dd] bg-white p-5 shadow-2xl sm:rounded-2xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
-              <UserPlus size={20} />
-            </div>
-            <div>
-              <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                {editingClient ? "Editar cadastro" : "Cadastro rápido"}
-              </p>
-              <h2 className="m-0 text-lg font-bold text-[#17211b]">
-                {editingClient ? editingClient.name : "Novo Cliente"}
-              </h2>
-            </div>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-5 pt-4 pb-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
+            <UserPlus size={20} />
           </div>
-          <IconButton
-            aria-label="Fechar"
-            icon={<X size={18} />}
-            onClick={onClose}
-            type="button"
-          />
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-bold tracking-[0.08em] text-[#4a7957] uppercase">
+              {editingClient ? "Editar cadastro" : "Cadastro rápido"}
+            </p>
+            <h2 className="m-0 truncate text-lg font-bold text-[#17211b]">
+              {editingClient ? editingClient.name : "Novo Cliente"}
+            </h2>
+          </div>
         </div>
+        <IconButton
+          aria-label="Fechar"
+          className="shrink-0"
+          disabled={submitting}
+          icon={<X size={18} />}
+          onClick={onClose}
+          type="button"
+        />
+      </div>
 
-        <form
-          className="grid gap-3.5"
-          onSubmit={(event) => void handleSubmit(event)}
-        >
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        onSubmit={(event) => void handleSubmit(event)}
+      >
+        <div className="grid flex-1 content-start gap-3.5 overflow-y-auto px-5 py-4">
           <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
             Nome do cliente *
             <input
@@ -178,51 +182,61 @@ export function ClientRegistrationModal({
             )}
           </button>
 
-          {showExtraFields && (
-            <div className="motion-content grid gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
-              <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
-                E-mail (para pacote mensal)
-                <input
-                  className={fieldClass}
-                  inputMode="email"
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    if (error) setError(null);
-                  }}
-                  placeholder="cliente@email.com"
-                  type="email"
-                  value={email}
-                />
-              </label>
+          <AnimatePresence initial={false}>
+            {showExtraFields && (
+              <m.div
+                animate={{ height: "auto", opacity: 1 }}
+                className="overflow-hidden"
+                exit={{ height: 0, opacity: 0 }}
+                initial={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <div className="grid gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5">
+                  <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+                    E-mail (para pacote mensal)
+                    <input
+                      className={fieldClass}
+                      inputMode="email"
+                      onChange={(event) => {
+                        setEmail(event.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="cliente@email.com"
+                      type="email"
+                      value={email}
+                    />
+                  </label>
 
-              <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
-                CPF (para pacote mensal)
-                <input
-                  className={fieldClass}
-                  inputMode="numeric"
-                  onChange={(event) => {
-                    setCpf(maskCpfInput(event.target.value));
-                    if (error) setError(null);
-                  }}
-                  placeholder="000.000.000-00"
-                  type="text"
-                  value={cpf}
-                />
-              </label>
+                  <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+                    CPF (para pacote mensal)
+                    <input
+                      className={fieldClass}
+                      inputMode="numeric"
+                      onChange={(event) => {
+                        setCpf(maskCpfInput(event.target.value));
+                        if (error) setError(null);
+                      }}
+                      placeholder="000.000.000-00"
+                      type="text"
+                      value={cpf}
+                    />
+                  </label>
 
-              <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
-                Observações
-                <textarea
-                  className="w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3.5 py-2 text-sm text-[#23372a] font-normal focus-visible:outline-2 focus-visible:outline-[#2f6840]"
-                  maxLength={400}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Preferências de corte, observações..."
-                  rows={2}
-                  value={notes}
-                />
-              </label>
-            </div>
-          )}
+                  <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+                    Observações
+                    <textarea
+                      className="w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3.5 py-2 text-sm font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+                      maxLength={400}
+                      onChange={(event) => setNotes(event.target.value)}
+                      placeholder="Preferências de corte, observações..."
+                      rows={2}
+                      value={notes}
+                    />
+                  </label>
+                </div>
+              </m.div>
+            )}
+          </AnimatePresence>
 
           {error && (
             <FeedbackMessage
@@ -231,26 +245,31 @@ export function ClientRegistrationModal({
               variant="error"
             />
           )}
+        </div>
 
-          <div className="mt-1 grid grid-cols-2 gap-2.5">
-            <Button
-              disabled={submitting}
-              onClick={onClose}
-              type="button"
-              variant="secondary"
-            >
-              Cancelar
-            </Button>
-            <Button disabled={submitting} type="submit">
-              {submitting
-                ? "Salvando..."
-                : editingClient
-                  ? "Salvar alterações"
-                  : "Cadastrar cliente"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-5 pt-3 pb-4">
+          <Button
+            className="!min-h-11 h-11 px-4 text-sm whitespace-nowrap"
+            disabled={submitting}
+            onClick={onClose}
+            type="button"
+            variant="secondary"
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="!min-h-11 h-11 text-sm whitespace-nowrap"
+            disabled={submitting}
+            type="submit"
+          >
+            {submitting
+              ? "Salvando..."
+              : editingClient
+                ? "Salvar alterações"
+                : "Cadastrar cliente"}
+          </Button>
+        </div>
+      </form>
+    </ModalOverlay>
   );
 }

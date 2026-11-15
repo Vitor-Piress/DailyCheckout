@@ -1,4 +1,5 @@
 import { AlertCircle, ArrowLeft, CalendarDays, Scissors } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import {
   createServiceRecord,
@@ -574,38 +575,42 @@ export function DailyOperation() {
         </div>
       )}
 
-      {registrationModalOpen && (
-        <ClientRegistrationModal
-          initialName={newClientInitialName}
-          onClose={() => setRegistrationModalOpen(false)}
-          onSaved={handleClientCreated}
-        />
-      )}
+      <AnimatePresence>
+        {registrationModalOpen && (
+          <ClientRegistrationModal
+            initialName={newClientInitialName}
+            key="client-registration-modal"
+            onClose={() => setRegistrationModalOpen(false)}
+            onSaved={handleClientCreated}
+          />
+        )}
 
-      {purchaseTargetClient && (
-        <PackPurchaseModal
-          client={purchaseTargetClient}
-          onClose={() => setPurchaseTargetClient(null)}
-          onPurchased={handlePackPurchased}
-        />
-      )}
+        {historyTargetClient && (
+          <ClientDetailsModal
+            client={historyTargetClient}
+            key={`client-details-${historyTargetClient.id}`}
+            onClientUpdated={(updated) => {
+              setSelectedClient((current) =>
+                current && current.id === updated.id ? updated : current,
+              );
+              setHistoryTargetClient((current) =>
+                current && current.id === updated.id ? updated : current,
+              );
+            }}
+            onClose={() => setHistoryTargetClient(null)}
+            onRequestRenew={(client) => setPurchaseTargetClient(client)}
+          />
+        )}
 
-      {historyTargetClient && (
-        <ClientDetailsModal
-          client={historyTargetClient}
-          key={historyTargetClient.id}
-          onClientUpdated={(updated) => {
-            setSelectedClient((current) =>
-              current && current.id === updated.id ? updated : current,
-            );
-            setHistoryTargetClient((current) =>
-              current && current.id === updated.id ? updated : current,
-            );
-          }}
-          onClose={() => setHistoryTargetClient(null)}
-          onRequestRenew={(client) => setPurchaseTargetClient(client)}
-        />
-      )}
+        {purchaseTargetClient && (
+          <PackPurchaseModal
+            client={purchaseTargetClient}
+            key={`pack-purchase-${purchaseTargetClient.id}`}
+            onClose={() => setPurchaseTargetClient(null)}
+            onPurchased={handlePackPurchased}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 }

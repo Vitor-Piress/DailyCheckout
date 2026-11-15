@@ -858,22 +858,45 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
 
                   return (
                     <li
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[0.65rem] bg-[#f5f7f4] p-3.5 text-[#34443a]"
+                      className="grid gap-2.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5 text-[#34443a]"
                       key={record.id}
                     >
-                      <span className="grid min-w-0 gap-1.5">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <strong>{record.serviceName || "Serviço"}</strong>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <strong className="text-sm leading-snug text-[#17211b] sm:text-base">
+                            {record.serviceName || "Serviço"}
+                          </strong>
                           {record.clientName && (
                             <span className="inline-flex items-center gap-1 rounded-md border border-[#c8d6ca] bg-white px-2 py-0.5 text-xs font-bold text-[#23372a]">
-                              <User className="text-[#4a7957]" size={12} />
-                              {record.clientName}
+                              <User className="shrink-0 text-[#4a7957]" size={12} />
+                              <span className="truncate">{record.clientName}</span>
                             </span>
                           )}
+                        </div>
+                        <Button
+                          aria-label={`Cancelar atendimento ${record.serviceName || "Serviço"}`}
+                          className="!min-h-8 h-8 shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap"
+                          disabled={Boolean(cancelingRecordId)}
+                          onClick={() =>
+                            void handleCancelServiceRecord(record)
+                          }
+                          title="Cancelar atendimento"
+                          type="button"
+                          variant="danger"
+                        >
+                          <RotateCcw size={13} />
+                          <span>
+                            {isCanceling ? "Cancelando..." : "Cancelar"}
+                          </span>
+                        </Button>
+                      </div>
+
+                      {(record.clientPackId || tipCents > 0) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {record.clientPackId && (
                             <span className="inline-flex items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
                               <PackageCheck size={12} />
-                              Corte de Pacote
+                              <span>Corte de Pacote</span>
                             </span>
                           )}
                           {tipCents > 0 && (
@@ -884,7 +907,10 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                                 : ""}
                             </span>
                           )}
-                        </span>
+                        </div>
+                      )}
+
+                      <div className="grid gap-0.5">
                         <small className="text-xs text-[#617067]">
                           {paymentMethodLabel(record.paymentMethod)}
                           {record.createdBy
@@ -899,85 +925,67 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                             Obs.: {record.notes}
                           </small>
                         )}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="grid shrink-0 justify-items-end gap-1 text-right">
-                          {record.clientPackId ? (
-                            role === "admin" ? (
-                              <>
-                                <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-semibold text-[#2f6840]">
-                                  Valor já recebido na compra do pacote
-                                </span>
-                                {record.operatorShareCents > 0 && (
-                                  <small className="text-xs font-bold text-[#805d12]">
-                                    Repasse operador:{" "}
-                                    {formatCurrency(record.operatorShareCents)}
-                                  </small>
-                                )}
-                                {tipCents > 0 &&
-                                  record.operatorShareCents === 0 && (
-                                    <small className="text-xs text-[#2f6840]">
-                                      Gorjeta admin: +{" "}
-                                      {formatCurrency(tipCents)}
-                                    </small>
-                                  )}
-                              </>
-                            ) : (
-                              <>
-                                <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                                  Sua parte:{" "}
-                                  <strong className="text-sm">
-                                    {formatCurrency(record.operatorShareCents)}
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e2ebe4] pt-2 text-xs">
+                        {record.clientPackId ? (
+                          role === "admin" ? (
+                            <>
+                              <span className="inline-flex items-center rounded-md bg-[#e8f2ea] px-2 py-0.5 font-semibold text-[#2f6840]">
+                                Valor já recebido na compra do pacote
+                              </span>
+                              {record.operatorShareCents > 0 ? (
+                                <strong className="font-bold text-[#805d12]">
+                                  Repasse operador:{" "}
+                                  {formatCurrency(record.operatorShareCents)}
+                                </strong>
+                              ) : (
+                                tipCents > 0 && (
+                                  <strong className="font-bold text-[#2f6840]">
+                                    Gorjeta admin: + {formatCurrency(tipCents)}
                                   </strong>
-                                </span>
-                                <small className="text-xs text-[#617067]">
-                                  Ref.: {formatCurrency(record.priceCents)}
-                                  {tipCents > 0
-                                    ? ` (inclui ${formatCurrency(tipCents)} gorjeta)`
-                                    : ""}
-                                </small>
-                              </>
-                            )
+                                )
+                              )}
+                            </>
                           ) : (
                             <>
-                              <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                                {role === "admin"
-                                  ? "Total:"
-                                  : tipCents > 0
-                                    ? "Minha parte:"
-                                    : "Minha parte (50%):"}{" "}
+                              <span className="text-[#617067]">
+                                Ref.: {formatCurrency(record.priceCents)}
+                                {tipCents > 0
+                                  ? ` (inclui ${formatCurrency(tipCents)} gorjeta)`
+                                  : ""}
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
+                                Sua parte:{" "}
                                 <strong className="text-sm">
-                                  {formatCurrency(
-                                    role === "admin"
-                                      ? totalCents
-                                      : record.operatorShareCents,
-                                  )}
+                                  {formatCurrency(record.operatorShareCents)}
                                 </strong>
                               </span>
-                              <small className="text-xs text-[#617067]">
-                                {tipCents > 0
-                                  ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
-                                  : `Valor bruto: ${formatCurrency(record.priceCents)}`}
-                              </small>
                             </>
-                          )}
-                        </div>
-                        <Button
-                          aria-label={`Cancelar atendimento ${record.serviceName || "Serviço"}`}
-                          className="!min-h-9 flex items-center gap-1 px-2.5 py-1.5 text-xs"
-                          disabled={Boolean(cancelingRecordId)}
-                          onClick={() =>
-                            void handleCancelServiceRecord(record)
-                          }
-                          title="Cancelar atendimento"
-                          type="button"
-                          variant="danger"
-                        >
-                          <RotateCcw size={13} />
-                          <span>
-                            {isCanceling ? "Cancelando..." : "Cancelar"}
-                          </span>
-                        </Button>
+                          )
+                        ) : (
+                          <>
+                            <span className="text-[#617067]">
+                              {tipCents > 0
+                                ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
+                                : `Valor bruto: ${formatCurrency(record.priceCents)}`}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
+                              {role === "admin"
+                                ? "Total:"
+                                : tipCents > 0
+                                  ? "Minha parte:"
+                                  : "Minha parte (50%):"}{" "}
+                              <strong className="text-sm">
+                                {formatCurrency(
+                                  role === "admin"
+                                    ? totalCents
+                                    : record.operatorShareCents,
+                                )}
+                              </strong>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </li>
                   );

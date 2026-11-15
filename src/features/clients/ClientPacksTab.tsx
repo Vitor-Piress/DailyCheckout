@@ -134,15 +134,15 @@ export function ClientPacksTab({
         <label className="grid gap-1 text-xs font-bold text-[#34443a]">
           Selecionar pacote contratado ({packs.length})
           <select
-            className="min-h-11 w-full rounded-[0.6rem] border border-[#c8d6ca] bg-[#f5f7f4] px-3 py-2 text-sm font-bold text-[#23372a]"
+            className="min-h-11 w-full truncate rounded-[0.6rem] border border-[#c8d6ca] bg-[#f5f7f4] py-2 pr-8 pl-3 text-xs font-bold text-[#23372a] sm:text-sm"
             onChange={(event) => onSelectPack(event.target.value)}
             value={selectedPackId}
           >
             {packs.map((pack) => (
               <option key={pack.id} value={pack.id}>
-                {pack.planName} ({packStatusMeta(pack.status).label}) —{" "}
-                {formatDateTimeSaoPaulo(pack.purchasedAt)} ({pack.usedCuts}/
-                {pack.totalCuts} usados)
+                {pack.planName} ({packStatusMeta(pack.status).label}) ·{" "}
+                {pack.usedCuts}/{pack.totalCuts} —{" "}
+                {formatDateTimeSaoPaulo(pack.purchasedAt)}
               </option>
             ))}
           </select>
@@ -248,63 +248,71 @@ export function ClientPacksTab({
                   const isCanceling = cancelingCutId === cut.id;
                   return (
                     <li
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3"
+                      className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3"
                       key={cut.id}
                     >
-                      <div className="grid min-w-0 gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-[#2f6840] px-2 py-0.5 text-xs font-bold text-white">
-                            <Scissors size={12} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[#2f6840] px-2 py-0.5 text-xs font-bold whitespace-nowrap text-white">
+                            <Scissors className="shrink-0" size={12} />
                             Corte #{index + 1}
                           </span>
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-[#23372a]">
                             <CalendarClock
-                              className="text-[#4a7957]"
-                              size={14}
+                              className="shrink-0 text-[#4a7957]"
+                              size={13}
                             />
                             {formatDateTimeSaoPaulo(cut.occurredAt)}
                           </span>
-                          {cut.tipCents > 0 && (
-                            <span className="rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                              + {formatCurrency(cut.tipCents)} gorjeta
-                            </span>
-                          )}
                         </div>
 
-                        <span className="flex items-center gap-1.5 text-xs text-[#34443a]">
-                          <UserCheck className="text-[#4a7957]" size={14} />
-                          Barbeiro:{" "}
-                          <strong>
-                            {cut.createdBy?.name ?? "Não identificado"}
-                          </strong>{" "}
-                          · Ref.: {formatCurrency(cut.priceCents)}
-                        </span>
-
-                        {cut.notes && (
-                          <small className="text-xs text-[#617067]">
-                            Obs.: {cut.notes}
-                          </small>
+                        {!isCanceledPack && (
+                          <Button
+                            className="!min-h-7 flex h-7 shrink-0 items-center gap-1 !px-2.5 !py-1 text-[11px] whitespace-nowrap"
+                            disabled={
+                              disabledActions ||
+                              Boolean(cancelingCutId) ||
+                              cancelingPack
+                            }
+                            onClick={() => onCancelConsumption(cut.id)}
+                            title="Cancelar corte e estornar 1 crédito ao pacote"
+                            type="button"
+                            variant="danger"
+                          >
+                            <RotateCcw className="shrink-0" size={12} />
+                            <span>
+                              {isCanceling ? "Estornando..." : "Estornar"}
+                            </span>
+                          </Button>
                         )}
                       </div>
 
-                      {!isCanceledPack && (
-                        <Button
-                          className="!min-h-9 flex items-center gap-1.5 px-3 py-1.5 text-xs"
-                          disabled={
-                            disabledActions ||
-                            Boolean(cancelingCutId) ||
-                            cancelingPack
-                          }
-                          onClick={() => onCancelConsumption(cut.id)}
-                          title="Cancelar corte e estornar 1 crédito ao pacote"
-                          type="button"
-                          variant="danger"
-                        >
-                          <RotateCcw size={14} />
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#34443a]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <UserCheck
+                            className="shrink-0 text-[#4a7957]"
+                            size={13}
+                          />
                           <span>
-                            {isCanceling ? "Estornando..." : "Estornar corte"}
+                            Barbeiro:{" "}
+                            <strong>
+                              {cut.createdBy?.name ?? "Não identificado"}
+                            </strong>{" "}
+                            · Ref.: {formatCurrency(cut.priceCents)}
                           </span>
-                        </Button>
+                        </span>
+
+                        {cut.tipCents > 0 && (
+                          <span className="rounded-md border border-[#9fc2a7] bg-white px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
+                            + {formatCurrency(cut.tipCents)} gorjeta
+                          </span>
+                        )}
+                      </div>
+
+                      {cut.notes && (
+                        <small className="text-xs text-[#617067]">
+                          Obs.: {cut.notes}
+                        </small>
                       )}
                     </li>
                   );
@@ -318,7 +326,7 @@ export function ClientPacksTab({
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e8eee9] pt-2">
               {activePack.status === "active" ? (
                 <button
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#e7b0a7] bg-[#fbeaea] px-3 py-1.5 text-xs font-bold text-[#a83e3e] transition hover:bg-[#f5d5d5] disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#e7b0a7] bg-[#fbeaea] px-3 text-xs font-bold whitespace-nowrap text-[#a83e3e] transition hover:bg-[#f5d5d5] disabled:opacity-50"
                   disabled={
                     disabledActions ||
                     cancelingPack ||
@@ -327,7 +335,7 @@ export function ClientPacksTab({
                   onClick={() => onCancelPack(activePack)}
                   type="button"
                 >
-                  <Ban size={14} />
+                  <Ban className="shrink-0" size={14} />
                   <span>
                     {cancelingPack
                       ? "Cancelando pacote..."
@@ -337,7 +345,7 @@ export function ClientPacksTab({
               ) : (
                 onRequestNewPack && (
                   <Button
-                    className="w-full sm:w-auto"
+                    className="!min-h-11 h-11 w-full text-sm whitespace-nowrap sm:w-auto"
                     onClick={onRequestNewPack}
                     type="button"
                   >
