@@ -5,7 +5,6 @@ import { useAuth } from "../../auth/authContext";
 import { Button } from "../ui/Button";
 import { Navigation } from "./Navigation";
 import { SignatureFooter } from "./SignatureFooter";
-import { TopApiProgressBar } from "./TopApiProgressBar";
 import { useMotionPreference } from "../../ui/motion";
 
 const logo = "/favicon.svg";
@@ -20,7 +19,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopApiProgressBar />
       <header className="flex items-center justify-between gap-4 bg-[#17211b] px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] text-[#f5f7f4] sm:px-8 sm:pb-5 sm:pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5 text-[1.05rem] font-bold tracking-tight">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-[#b6d7bd] bg-transparent">

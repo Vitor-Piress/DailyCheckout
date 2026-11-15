@@ -11,7 +11,7 @@ export function ProgressBar({
   className = "",
 }: {
   percent: number;
-  size?: "sm" | "md" | "top";
+  size?: "sm" | "md";
   tone?: "brand" | "amber";
   showShimmer?: boolean;
   ariaLabel?: string;
@@ -21,18 +21,14 @@ export function ProgressBar({
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
 
   const trackClass =
-    size === "top"
-      ? "h-[3px] w-full overflow-hidden bg-[#17211b]/15"
-      : size === "sm"
-        ? "h-1.5 w-full overflow-hidden rounded-full bg-[#dce5dd]"
-        : "h-2.5 w-full overflow-hidden rounded-full bg-[#dce5dd]";
+    size === "sm"
+      ? "h-1.5 w-full overflow-hidden rounded-full bg-[#dce5dd]"
+      : "h-2.5 w-full overflow-hidden rounded-full bg-[#dce5dd]";
 
   const fillToneClass =
     tone === "amber"
       ? "from-[#b88318] to-[#d99d2b]"
       : "from-[#2f6840] to-[#4a7957]";
-
-  const radiusClass = size === "top" ? "rounded-none" : "rounded-full";
 
   return (
     <div
@@ -44,7 +40,7 @@ export function ProgressBar({
       role="progressbar"
     >
       <div
-        className={`relative h-full overflow-hidden ${radiusClass} bg-gradient-to-r ${fillToneClass} ${
+        className={`relative h-full overflow-hidden rounded-full bg-gradient-to-r ${fillToneClass} ${
           animationsEnabled ? "transition-[width] duration-200 ease-out" : ""
         }`}
         style={{ width: `${clamped}%` }}

@@ -1,5 +1,4 @@
 import { authClient, getAuthToken } from "../auth/authClient";
-import { trackApiRequest } from "./apiProgress";
 
 export type ApiErrorDetails = Record<string, unknown>[];
 
@@ -126,5 +125,5 @@ export async function request<T>(
     );
   }
 
-  return trackApiRequest(() => executeRequest<T>(path, options));
+  return executeRequest<T>(path, options);
 }
