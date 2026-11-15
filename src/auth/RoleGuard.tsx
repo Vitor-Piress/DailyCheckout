@@ -3,7 +3,13 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { useAuth } from "./authContext";
 import type { UserRole } from "./roles";
 
-export function RoleGuard({ allowedRole }: { allowedRole: UserRole }) {
+export function RoleGuard({
+  allowedRole,
+  redirectTo = "/",
+}: {
+  allowedRole: UserRole;
+  redirectTo?: string;
+}) {
   const { loading, role, roleLoading, user } = useAuth();
   const location = useLocation();
 
@@ -16,7 +22,7 @@ export function RoleGuard({ allowedRole }: { allowedRole: UserRole }) {
   }
 
   if (role !== allowedRole) {
-    return <Navigate replace to="/" />;
+    return <Navigate replace to={redirectTo} />;
   }
 
   return <Outlet />;

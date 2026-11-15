@@ -13,10 +13,13 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const { signOut, user } = useAuth();
   const { animationsEnabled, toggleAnimations } = useMotionPreference();
   const location = useLocation();
+  const pageTransitionKey = location.pathname.startsWith("/gestao")
+    ? "/gestao"
+    : location.pathname;
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between gap-4 bg-[#17211b] px-5 py-4 text-[#f5f7f4] sm:px-8 sm:py-5">
+      <header className="flex items-center justify-between gap-4 bg-[#17211b] px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] text-[#f5f7f4] sm:px-8 sm:pb-5 sm:pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <div className="flex items-center gap-2.5 text-[1.05rem] font-bold tracking-tight">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-[#b6d7bd] bg-transparent">
             <img
@@ -58,8 +61,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </Button>
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-[70rem] flex-1 flex-col px-4 py-6 pb-26 sm:px-8 sm:py-10 sm:pb-26">
-        <div className="motion-page flex-1" key={location.pathname}>
+      <main className="mx-auto flex w-full max-w-[70rem] flex-1 flex-col px-4 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:px-8 sm:pt-10 sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+        <div className="motion-page flex-1" key={pageTransitionKey}>
           {children ?? <Outlet />}
         </div>
         <SignatureFooter className="mt-10 pt-2" />

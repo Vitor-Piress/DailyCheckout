@@ -8,9 +8,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { subscribeReportInvalidation } from "../../api/clientInvalidation";
 import { getPeriodicReport } from "../../api/dailyCheckoutApi";
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../auth/authContext";
+import { useManagementRefreshToken } from "./managementContext";
 import type { Period, PeriodicReport } from "../../api/types";
 import { SummaryList } from "../../components/reports/SummaryList";
 import { UserReportGroups } from "../../components/reports/UserReportGroups";
@@ -117,6 +119,9 @@ function PeriodicPrintReport({
                 : ""}
               {(report.dailyOperatorsExpense.packCommissionCents ?? 0) > 0
                 ? ` · Comissão pacotes: + ${formatCurrency(report.dailyOperatorsExpense.packCommissionCents ?? 0)}`
+                : ""}
+              {(report.dailyOperatorsExpense.loyaltyCommissionCents ?? 0) > 0
+                ? ` · Comissão fidelidade: + ${formatCurrency(report.dailyOperatorsExpense.loyaltyCommissionCents ?? 0)}`
                 : ""}
             </span>
           </div>
@@ -289,10 +294,12 @@ function PeriodicPrintReport({
 }
 
 export function PeriodicManagement({
-  refreshToken = 0,
+  refreshToken: propRefreshToken,
 }: {
   refreshToken?: number;
 }) {
+  const outletRefreshToken = useManagementRefreshToken();
+  const refreshToken = propRefreshToken ?? outletRefreshToken;
   const { role } = useAuth();
   const [period, setPeriod] = useState<Period>("month");
   const currentMonth = getCurrentMonth();
@@ -306,6 +313,13 @@ export function PeriodicManagement({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [daysExpanded, setDaysExpanded] = useState(false);
+  const [invalidationNonce, setInvalidationNonce] = useState(0);
+
+  useEffect(() => {
+    return subscribeReportInvalidation(() => {
+      setInvalidationNonce((n) => n + 1);
+    });
+  }, []);
 
   function periodStartMonth(value: Period, month: string): string {
     const monthNumber = Number(month);
@@ -350,6 +364,7 @@ export function PeriodicManagement({
     referenceMonthNumber,
     referenceYear,
     refreshToken,
+    invalidationNonce,
   ]);
 
   function changePeriod(value: Period) {
@@ -806,6 +821,24 @@ export function PeriodicManagement({
                       )
                     </span>
                   )}
+                  {Boolean(
+                    (report.dailyOperatorsExpense.loyaltyCommissionCents ?? 0) >
+                      0,
+                  ) && (
+                    <span className="mt-1 block font-semibold text-[#805d12]">
+                      Inclui comissão fidelidade:{" "}
+                      {formatCurrency(
+                        report.dailyOperatorsExpense.loyaltyCommissionCents ??
+                          0,
+                      )}{" "}
+                      (
+                      {report.dailyOperatorsExpense.loyaltyCutsCount ?? 0}{" "}
+                      {(report.dailyOperatorsExpense.loyaltyCutsCount ?? 0) === 1
+                        ? "corte"
+                        : "cortes"}
+                      )
+                    </span>
+                  )}
                 </p>
                 <p className="m-0 rounded-lg border border-[#ead9a6] bg-[#fff9e8] px-2.5 py-2 text-xs text-[#805d12]">
                   Valor flexível em atualização diária conforme novos
@@ -871,6 +904,21 @@ export function PeriodicManagement({
                               )}{" "}
                               ({operator.packCutsCount ?? 0}{" "}
                               {operator.packCutsCount === 1 ? "corte" : "cortes"}
+                              )
+                            </span>
+                          )}
+                          {Boolean(
+                            (operator.loyaltyCommissionCents ?? 0) > 0,
+                          ) && (
+                            <span className="font-semibold text-[#805d12]">
+                              Comissão fidelidade:{" "}
+                              {formatCurrency(
+                                operator.loyaltyCommissionCents ?? 0,
+                              )}{" "}
+                              ({operator.loyaltyCutsCount ?? 0}{" "}
+                              {operator.loyaltyCutsCount === 1
+                                ? "corte"
+                                : "cortes"}
                               )
                             </span>
                           )}
@@ -945,7 +993,8 @@ export function PeriodicManagement({
                 )}
               {Boolean(
                 (report.settlement.packSalesCents ?? 0) > 0 ||
-                  (report.settlement.packCommissionDeductionCents ?? 0) > 0,
+                  (report.settlement.packCommissionDeductionCents ?? 0) > 0 ||
+                  (report.settlement.loyaltyCommissionDeductionCents ?? 0) > 0,
               ) && (
                 <div className="grid gap-1.5 rounded-lg border border-[#dce5dd] bg-[#f5f7f4] p-3 text-xs">
                   {Boolean((report.settlement.packSalesCents ?? 0) > 0) && (
@@ -969,6 +1018,23 @@ export function PeriodicManagement({
                         -{" "}
                         {formatCurrency(
                           report.settlement.packCommissionDeductionCents ?? 0,
+                        )}
+                      </strong>
+                    </div>
+                  )}
+                  {Boolean(
+                    (report.settlement.loyaltyCommissionDeductionCents ?? 0) >
+                      0,
+                  ) && (
+                    <div className="flex items-center justify-between text-[#8b3d32]">
+                      <span className="font-semibold">
+                        Comissão Fidelidade (operadores):
+                      </span>
+                      <strong>
+                        -{" "}
+                        {formatCurrency(
+                          report.settlement.loyaltyCommissionDeductionCents ??
+                            0,
                         )}
                       </strong>
                     </div>

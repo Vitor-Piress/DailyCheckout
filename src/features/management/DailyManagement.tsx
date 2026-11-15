@@ -2,11 +2,16 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Gift,
+  Layers,
   PackageCheck,
   RotateCcw,
+  Scissors,
   User,
+  Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { subscribeReportInvalidation } from "../../api/clientInvalidation";
 import {
   cancelServiceRecord,
   closeDailySettlement,
@@ -19,12 +24,14 @@ import type { DailyReport, ServiceRecord, ServiceType } from "../../api/types";
 import { ReportList } from "../../components/reports/ReportList";
 import { UserReportGroups } from "../../components/reports/UserReportGroups";
 import { Button } from "../../components/ui/Button";
+import { ExpandablePanel } from "../../components/ui/ExpandablePanel";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { LoadingMessage } from "../../components/ui/LoadingMessage";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { Panel } from "../../components/ui/Panel";
 import { getApiErrorMessage } from "../../lib/errors";
 import { useAuth } from "../../auth/authContext";
+import { useManagementRefreshToken } from "./managementContext";
 import {
   formatCurrency,
   formatIsoDate,
@@ -44,7 +51,13 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
-export function DailyManagement({ refreshToken }: { refreshToken: number }) {
+export function DailyManagement({
+  refreshToken: propRefreshToken,
+}: {
+  refreshToken?: number;
+}) {
+  const outletRefreshToken = useManagementRefreshToken();
+  const refreshToken = propRefreshToken ?? outletRefreshToken;
   const { role } = useAuth();
   const [date, setDate] = useState(getToday);
   const [records, setRecords] = useState<ServiceRecord[]>([]);
@@ -63,8 +76,19 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
   const [recordActionError, setRecordActionError] = useState<string | null>(
     null,
   );
+  const [summariesExpanded, setSummariesExpanded] = useState(false);
+  const [recordsExpanded, setRecordsExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [invalidationNonce, setInvalidationNonce] = useState(0);
+  const suppressInvalidationRef = useRef(false);
+
+  useEffect(() => {
+    return subscribeReportInvalidation(() => {
+      if (suppressInvalidationRef.current) return;
+      setInvalidationNonce((n) => n + 1);
+    });
+  }, []);
 
   useEffect(() => {
     void Promise.all([
@@ -92,7 +116,7 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       .finally(() => {
         setLoading(false);
       });
-  }, [date, refreshToken, role]);
+  }, [date, refreshToken, invalidationNonce, role]);
 
   function changeDate(value: string) {
     if (!value) {
@@ -184,6 +208,13 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               calculatedSettlement.packCommissionDeductionCents ??
               0)
             : (calculatedSettlement.packCommissionDeductionCents ?? 0),
+        loyaltyCommissionDeductionCents:
+          calculatedSettlement.persistenceStatus === "closed"
+            ? (calculatedSettlement.closedSettlement
+                ?.loyaltyCommissionDeductionCents ??
+              calculatedSettlement.loyaltyCommissionDeductionCents ??
+              0)
+            : (calculatedSettlement.loyaltyCommissionDeductionCents ?? 0),
         current: calculatedSettlement,
       }
     : null;
@@ -226,6 +257,12 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       value: formatCurrency(summary?.totalCents ?? 0),
     };
   });
+  const activeServicesCount = (report?.services ?? []).filter(
+    (item) => item.quantity > 0,
+  ).length;
+  const activePaymentsCount = (report?.paymentMethods ?? []).filter(
+    (item) => item.quantity > 0,
+  ).length;
 
   async function handleCloseSettlement() {
     if (role !== "admin" || settlementSubmitting) {
@@ -278,20 +315,27 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
     if (cancelingRecordId) return;
 
     const isPackCut = Boolean(record.clientPackId);
+    const isLoyaltyReward = Boolean(record.isLoyaltyReward);
+    const countsForLoyalty = Boolean(record.countsForLoyalty);
+    const detailReason = isLoyaltyReward
+      ? "Este atendimento foi um resgate gratuito da Fidelidade (10 cortes). Ao cancelar, o corte gratuito voltará a ficar disponível (10/10) para o cliente."
+      : isPackCut
+        ? "Este atendimento foi realizado pelo Pacote Mensal. Ao cancelar, 1 corte será devolvido automaticamente ao saldo do pacote do cliente."
+        : countsForLoyalty
+          ? "O atendimento será cancelado, desconsiderado nos relatórios e a contagem de fidelidade do cliente será recalculada."
+          : "O atendimento será cancelado e desconsiderado nos relatórios.";
+
     const confirmed = window.confirm(
       `Confirma o cancelamento do atendimento "${record.serviceName || "Serviço"}"${
         record.clientName ? ` (${record.clientName})` : ""
-      }?\n\n${
-        isPackCut
-          ? "Este atendimento foi realizado pelo Pacote Mensal. Ao cancelar, 1 corte será devolvido automaticamente ao saldo do pacote do cliente."
-          : "O atendimento será cancelado e desconsiderado nos relatórios."
-      }`,
+      }?\n\n${detailReason}`,
     );
     if (!confirmed) return;
 
     setCancelingRecordId(record.id);
     setRecordActionError(null);
     setRecordActionMessage(null);
+    suppressInvalidationRef.current = true;
     try {
       await cancelServiceRecord(
         record.id,
@@ -305,9 +349,11 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
       setRecords(updatedRecords);
       setReport(updatedReport);
       setRecordActionMessage(
-        isPackCut
-          ? `Atendimento cancelado e 1 corte devolvido ao pacote${record.clientName ? ` de ${record.clientName}` : ""}.`
-          : "Atendimento cancelado com sucesso.",
+        isLoyaltyReward
+          ? `Resgate de fidelidade cancelado e prêmio devolvido${record.clientName ? ` para ${record.clientName}` : ""}.`
+          : isPackCut
+            ? `Atendimento cancelado e 1 corte devolvido ao pacote${record.clientName ? ` de ${record.clientName}` : ""}.`
+            : "Atendimento cancelado com sucesso.",
       );
     } catch (cause: unknown) {
       setRecordActionError(
@@ -317,13 +363,14 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
         ),
       );
     } finally {
+      suppressInvalidationRef.current = false;
       setCancelingRecordId(null);
     }
   }
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-white p-4">
+    <div className="grid min-w-0 gap-4">
+      <div className="grid min-w-0 gap-1.5 rounded-xl border border-[#dce5dd] bg-white p-4">
         <label
           className="text-sm font-bold text-[#34443a]"
           htmlFor="report-date"
@@ -467,13 +514,44 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                   </span>
                 </div>
               )}
+              {Boolean((report.operatorShare.loyaltyCutsCount ?? 0) > 0) && (
+                <div className="grid gap-1 rounded-[0.8rem] border border-[#ead9a6] bg-[#fff9e8] p-3.5 text-xs text-[#805d12]">
+                  <span className="font-bold">
+                    Cortes Fidelidade (Grátis):{" "}
+                    {report.operatorShare.loyaltyCutsCount}{" "}
+                    {report.operatorShare.loyaltyCutsCount === 1
+                      ? "corte"
+                      : "cortes"}
+                  </span>
+                  <span>
+                    Valor de referência:{" "}
+                    {formatCurrency(
+                      report.operatorShare.loyaltyCutsReferenceCents ?? 0,
+                    )}{" "}
+                    · Comissão operador (50%):{" "}
+                    <strong>
+                      {formatCurrency(
+                        report.operatorShare.loyaltyCommissionCents ?? 0,
+                      )}
+                    </strong>
+                  </span>
+                </div>
+              )}
             </Panel>
           ) : (
             <div
               className="motion-content grid gap-4 sm:grid-cols-2"
               key={date}
             >
-              <MetricCard label="Atendimentos" value={report.serviceCount} />
+              <MetricCard
+                detail={
+                  (report.loyaltyCutsCount ?? 0) > 0
+                    ? `Inclui ${report.loyaltyCutsCount} ${report.loyaltyCutsCount === 1 ? "corte grátis" : "cortes grátis"} (fidelidade)`
+                    : undefined
+                }
+                label="Atendimentos"
+                value={report.serviceCount}
+              />
               <MetricCard
                 detail={
                   (report.tipsCents ?? 0) > 0 ||
@@ -495,19 +573,6 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               />
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ReportList
-              emptyMessage="Nenhum serviço cadastrado."
-              items={serviceSummaries}
-              title="Resumo por serviço"
-            />
-            <ReportList
-              emptyMessage="Nenhuma forma de pagamento cadastrada."
-              items={paymentSummaries}
-              title="Resumo por pagamento"
-            />
-          </div>
-          {role === "admin" && <UserReportGroups users={report.users ?? []} />}
           {role === "admin" && (
             <Panel>
               <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
@@ -592,10 +657,13 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                       0;
                     const packCommissionDeductionCents =
                       displayedSettlement.packCommissionDeductionCents ?? 0;
+                    const loyaltyCommissionDeductionCents =
+                      displayedSettlement.loyaltyCommissionDeductionCents ?? 0;
 
                     if (
                       packSalesCents <= 0 &&
-                      packCommissionDeductionCents <= 0
+                      packCommissionDeductionCents <= 0 &&
+                      loyaltyCommissionDeductionCents <= 0
                     ) {
                       return null;
                     }
@@ -619,6 +687,17 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                             </span>
                             <strong className="text-sm font-extrabold">
                               - {formatCurrency(packCommissionDeductionCents)}
+                            </strong>
+                          </div>
+                        )}
+                        {loyaltyCommissionDeductionCents > 0 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f2c2bb] bg-[#fff1ef] p-2 text-[#8b3d32]">
+                            <span className="font-bold">
+                              Comissão Fidelidade (operadores):
+                            </span>
+                            <strong className="text-sm font-extrabold">
+                              -{" "}
+                              {formatCurrency(loyaltyCommissionDeductionCents)}
                             </strong>
                           </div>
                         )}
@@ -744,13 +823,26 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
                               {Boolean(
                                 (operator.packCommissionCents ?? 0) > 0,
                               ) && (
-                                <span className="text-sm font-semibold text-[#2f6840]">
+                                <span className="font-semibold text-sm text-[#2f6840]">
                                   Comissão cortes de pacote: +{" "}
                                   {formatCurrency(
                                     operator.packCommissionCents ?? 0,
                                   )}
                                   {operator.packCutsCount
                                     ? ` (${operator.packCutsCount} corte${operator.packCutsCount === 1 ? "" : "s"})`
+                                    : ""}
+                                </span>
+                              )}
+                              {Boolean(
+                                (operator.loyaltyCommissionCents ?? 0) > 0,
+                              ) && (
+                                <span className="font-semibold text-sm text-[#805d12]">
+                                  Comissão Fidelidade: +{" "}
+                                  {formatCurrency(
+                                    operator.loyaltyCommissionCents ?? 0,
+                                  )}
+                                  {operator.loyaltyCutsCount
+                                    ? ` (${operator.loyaltyCutsCount} corte${operator.loyaltyCutsCount === 1 ? "" : "s"})`
                                     : ""}
                                 </span>
                               )}
@@ -806,193 +898,313 @@ export function DailyManagement({ refreshToken }: { refreshToken: number }) {
               )}
             </Panel>
           )}
-          <Panel>
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
-                  Atendimentos realizados
-                </p>
-                <h2 className="m-0 text-base leading-tight">
-                  Registros do dia
-                </h2>
-              </div>
-              <ClipboardList className="text-[#4a7957]" size={24} />
-            </div>
-
+          {role === "admin" && <UserReportGroups users={report.users ?? []} />}
+          <ExpandablePanel
+            badge={
+              <span className="inline-flex items-center rounded-full border border-[#dce5dd] bg-[#f5f7f4] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                {activeServicesCount > 0 || activePaymentsCount > 0
+                  ? `${activeServicesCount} serv. · ${activePaymentsCount} pgto.`
+                  : "Sem movimentos"}
+              </span>
+            }
+            bodyClassName="grid min-w-0 gap-3.5 border-t border-[#e8eee9] p-4 sm:grid-cols-2 sm:gap-4 sm:p-5"
+            expanded={summariesExpanded}
+            eyebrow="Detalhamento do dia"
+            icon={<Layers aria-hidden="true" size={20} />}
+            id="daily-summaries-panel"
+            onToggle={() => setSummariesExpanded((expanded) => !expanded)}
+            title="Serviços e pagamentos"
+          >
+            <ReportList
+              emptyMessage="Nenhum serviço cadastrado."
+              icon={<Scissors aria-hidden="true" size={15} />}
+              items={serviceSummaries}
+              title="Resumo por serviço"
+              variant="inset"
+            />
+            <ReportList
+              emptyMessage="Nenhuma forma de pagamento cadastrada."
+              icon={<Wallet aria-hidden="true" size={15} />}
+              items={paymentSummaries}
+              title="Resumo por pagamento"
+              variant="inset"
+            />
+          </ExpandablePanel>
+          <ExpandablePanel
+            badge={
+              <span className="inline-flex items-center rounded-full border border-[#dce5dd] bg-[#f5f7f4] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                {records.length}{" "}
+                {records.length === 1 ? "registro" : "registros"}
+              </span>
+            }
+            expanded={recordsExpanded}
+            eyebrow="Atendimentos realizados"
+            icon={<ClipboardList aria-hidden="true" size={20} />}
+            id="daily-records-list"
+            onToggle={() => setRecordsExpanded((expanded) => !expanded)}
+            title="Registros do dia"
+          >
             {recordActionMessage && (
-              <div className="mb-3">
-                <FeedbackMessage
-                  message={recordActionMessage}
-                  onClose={() => setRecordActionMessage(null)}
-                />
-              </div>
+              <FeedbackMessage
+                message={recordActionMessage}
+                onClose={() => setRecordActionMessage(null)}
+              />
             )}
 
             {recordActionError && (
-              <div className="mb-3">
-                <FeedbackMessage
-                  message={recordActionError}
-                  onClose={() => setRecordActionError(null)}
-                  variant="error"
-                />
-              </div>
+              <FeedbackMessage
+                message={recordActionError}
+                onClose={() => setRecordActionError(null)}
+                variant="error"
+              />
             )}
 
             {records.length === 0 ? (
-              <p className="m-0 text-[#617067]">
+              <p className="m-0 text-sm text-[#617067]">
                 Nenhum atendimento nesta data.
               </p>
             ) : (
-              <ul className="m-0 grid list-none gap-2.5 p-0">
-                {records.map((record) => {
-                  const tipCents = record.tipCents ?? 0;
-                  const totalCents =
-                    record.totalCents ?? record.priceCents + tipCents;
-                  const tipWithDifferentMethod =
-                    tipCents > 0 &&
-                    record.tipPaymentMethod &&
-                    record.tipPaymentMethod !== record.paymentMethod
-                      ? record.tipPaymentMethod
-                      : null;
-                  const isCanceling = cancelingRecordId === record.id;
+              <ul className="m-0 grid min-w-0 list-none gap-2.5 p-0">
+                        {records.map((record) => {
+                          const isPackCut = Boolean(record.clientPackId);
+                          const isLoyaltyReward = Boolean(
+                            record.isLoyaltyReward,
+                          );
+                          const tipCents = record.tipCents ?? 0;
+                          const totalCents =
+                            record.totalCents ?? record.priceCents + tipCents;
+                          const tipWithDifferentMethod =
+                            tipCents > 0 &&
+                            record.tipPaymentMethod &&
+                            (isPackCut ||
+                              isLoyaltyReward ||
+                              record.tipPaymentMethod !== record.paymentMethod)
+                              ? record.tipPaymentMethod
+                              : null;
+                          const isCanceling = cancelingRecordId === record.id;
 
-                  return (
-                    <li
-                      className="grid gap-2.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5 text-[#34443a]"
-                      key={record.id}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          <strong className="text-sm leading-snug text-[#17211b] sm:text-base">
-                            {record.serviceName || "Serviço"}
-                          </strong>
-                          {record.clientName && (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-[#c8d6ca] bg-white px-2 py-0.5 text-xs font-bold text-[#23372a]">
-                              <User className="shrink-0 text-[#4a7957]" size={12} />
-                              <span className="truncate">{record.clientName}</span>
-                            </span>
-                          )}
-                        </div>
-                        <Button
-                          aria-label={`Cancelar atendimento ${record.serviceName || "Serviço"}`}
-                          className="!min-h-8 h-8 shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap"
-                          disabled={Boolean(cancelingRecordId)}
-                          onClick={() =>
-                            void handleCancelServiceRecord(record)
-                          }
-                          title="Cancelar atendimento"
-                          type="button"
-                          variant="danger"
-                        >
-                          <RotateCcw size={13} />
-                          <span>
-                            {isCanceling ? "Cancelando..." : "Cancelar"}
-                          </span>
-                        </Button>
-                      </div>
-
-                      {(record.clientPackId || tipCents > 0) && (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {record.clientPackId && (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                              <PackageCheck size={12} />
-                              <span>Corte de Pacote</span>
-                            </span>
-                          )}
-                          {tipCents > 0 && (
-                            <span className="inline-flex items-center rounded-md border border-[#cfe0d3] bg-white px-2 py-0.5 text-xs font-bold text-[#2f6840]">
-                              + {formatCurrency(tipCents)} gorjeta
-                              {tipWithDifferentMethod
-                                ? ` (${paymentMethodLabel(tipWithDifferentMethod)})`
-                                : ""}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="grid gap-0.5">
-                        <small className="text-xs text-[#617067]">
-                          {paymentMethodLabel(record.paymentMethod)}
-                          {record.createdBy
-                            ? ` · Lançado por: ${record.createdBy.name}`
-                            : ""}
-                          {record.occurredAt
-                            ? ` · ${formatDateTime(record.occurredAt)}`
-                            : ""}
-                        </small>
-                        {record.notes && (
-                          <small className="text-xs text-[#617067]">
-                            Obs.: {record.notes}
-                          </small>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e2ebe4] pt-2 text-xs">
-                        {record.clientPackId ? (
-                          role === "admin" ? (
-                            <>
-                              <span className="inline-flex items-center rounded-md bg-[#e8f2ea] px-2 py-0.5 font-semibold text-[#2f6840]">
-                                Valor já recebido na compra do pacote
-                              </span>
-                              {record.operatorShareCents > 0 ? (
-                                <strong className="font-bold text-[#805d12]">
-                                  Repasse operador:{" "}
-                                  {formatCurrency(record.operatorShareCents)}
-                                </strong>
-                              ) : (
-                                tipCents > 0 && (
-                                  <strong className="font-bold text-[#2f6840]">
-                                    Gorjeta admin: + {formatCurrency(tipCents)}
+                          return (
+                            <li
+                              className="grid min-w-0 gap-2.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5 text-[#34443a]"
+                              key={record.id}
+                            >
+                              <div className="flex min-w-0 items-start justify-between gap-2">
+                                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                  <strong className="text-sm leading-snug text-[#17211b] sm:text-base">
+                                    {record.serviceName || "Serviço"}
                                   </strong>
-                                )
+                                  {record.clientName && (
+                                    <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#c8d6ca] bg-white px-2 py-0.5 text-xs font-bold text-[#23372a]">
+                                      <User
+                                        className="shrink-0 text-[#4a7957]"
+                                        size={12}
+                                      />
+                                      <span className="truncate">
+                                        {record.clientName}
+                                      </span>
+                                    </span>
+                                  )}
+                                </div>
+                                <Button
+                                  aria-label={`Cancelar atendimento ${record.serviceName || "Serviço"}`}
+                                  className="!min-h-8 h-8 flex shrink-0 items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap"
+                                  disabled={Boolean(cancelingRecordId)}
+                                  onClick={() =>
+                                    void handleCancelServiceRecord(record)
+                                  }
+                                  title="Cancelar atendimento"
+                                  type="button"
+                                  variant="danger"
+                                >
+                                  <RotateCcw size={13} />
+                                  <span>
+                                    {isCanceling ? "Cancelando..." : "Cancelar"}
+                                  </span>
+                                </Button>
+                              </div>
+
+                              {(isPackCut ||
+                                isLoyaltyReward ||
+                                record.countsForLoyalty ||
+                                tipCents > 0) && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {isLoyaltyReward && (
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-[#ead9a6] bg-[#fff4d6] px-2 py-0.5 text-xs font-bold text-[#805d12]">
+                                      <Gift className="shrink-0" size={12} />
+                                      <span>Fidelidade · Corte Grátis</span>
+                                    </span>
+                                  )}
+                                  {isPackCut && (
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                                      <PackageCheck size={12} />
+                                      <span>Corte de Pacote</span>
+                                    </span>
+                                  )}
+                                  {!isPackCut &&
+                                    !isLoyaltyReward &&
+                                    record.countsForLoyalty && (
+                                      <span className="inline-flex items-center rounded-md border border-[#c8d6ca] bg-white px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
+                                        +1 fidelidade
+                                      </span>
+                                    )}
+                                  {tipCents > 0 && (
+                                    <span className="inline-flex items-center rounded-md border border-[#cfe0d3] bg-white px-2 py-0.5 text-xs font-bold text-[#2f6840]">
+                                      + {formatCurrency(tipCents)} gorjeta
+                                      {tipWithDifferentMethod
+                                        ? ` (${paymentMethodLabel(tipWithDifferentMethod)})`
+                                        : ""}
+                                    </span>
+                                  )}
+                                </div>
                               )}
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-[#617067]">
-                                Ref.: {formatCurrency(record.priceCents)}
-                                {tipCents > 0
-                                  ? ` (inclui ${formatCurrency(tipCents)} gorjeta)`
-                                  : ""}
-                              </span>
-                              <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
-                                Sua parte:{" "}
-                                <strong className="text-sm">
-                                  {formatCurrency(record.operatorShareCents)}
-                                </strong>
-                              </span>
-                            </>
-                          )
-                        ) : (
-                          <>
-                            <span className="text-[#617067]">
-                              {tipCents > 0
-                                ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
-                                : `Valor bruto: ${formatCurrency(record.priceCents)}`}
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
-                              {role === "admin"
-                                ? "Total:"
-                                : tipCents > 0
-                                  ? "Minha parte:"
-                                  : "Minha parte (50%):"}{" "}
-                              <strong className="text-sm">
-                                {formatCurrency(
-                                  role === "admin"
-                                    ? totalCents
-                                    : record.operatorShareCents,
+
+                              <div className="grid gap-0.5">
+                                <small className="text-xs text-[#617067]">
+                                  {isLoyaltyReward
+                                    ? tipCents > 0
+                                      ? `Gorjeta em ${paymentMethodLabel(record.tipPaymentMethod ?? record.paymentMethod)}`
+                                      : "Cortesia Fidelidade (R$ 0,00)"
+                                    : paymentMethodLabel(record.paymentMethod)}
+                                  {record.createdBy
+                                    ? ` · Lançado por: ${record.createdBy.name}`
+                                    : ""}
+                                  {record.occurredAt
+                                    ? ` · ${formatDateTime(record.occurredAt)}`
+                                    : ""}
+                                </small>
+                                {record.notes && (
+                                  <small className="text-xs text-[#617067]">
+                                    Obs.: {record.notes}
+                                  </small>
                                 )}
-                              </strong>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e2ebe4] pt-2 text-xs">
+                                {isLoyaltyReward ? (
+                                  role === "admin" ? (
+                                    <>
+                                      <span className="inline-flex items-center rounded-md bg-[#fff4d6] px-2 py-0.5 font-semibold text-[#805d12]">
+                                        Cortesia de 10 cortes (sem entrada no
+                                        caixa)
+                                      </span>
+                                      {record.operatorShareCents > 0 ? (
+                                        <strong className="font-bold text-[#805d12]">
+                                          Repasse operador:{" "}
+                                          {formatCurrency(
+                                            record.operatorShareCents,
+                                          )}{" "}
+                                          <span className="font-medium text-[#617067]">
+                                            · Admin:{" "}
+                                            {formatCurrency(
+                                              record.adminShareCents,
+                                            )}
+                                          </span>
+                                        </strong>
+                                      ) : tipCents > 0 ? (
+                                        <strong className="font-bold text-[#2f6840]">
+                                          Gorjeta admin: +{" "}
+                                          {formatCurrency(tipCents)}
+                                        </strong>
+                                      ) : (
+                                        <span className="font-semibold text-[#617067]">
+                                          Admin:{" "}
+                                          {formatCurrency(
+                                            record.adminShareCents,
+                                          )}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-[#617067]">
+                                        Cortesia 10/10 (Ref.:{" "}
+                                        {formatCurrency(record.priceCents)}
+                                        {tipCents > 0
+                                          ? ` · inclui ${formatCurrency(tipCents)} gorjeta`
+                                          : ""}
+                                        )
+                                      </span>
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
+                                        Sua parte:{" "}
+                                        <strong className="text-sm">
+                                          {formatCurrency(
+                                            record.operatorShareCents,
+                                          )}
+                                        </strong>
+                                      </span>
+                                    </>
+                                  )
+                                ) : isPackCut ? (
+                                  role === "admin" ? (
+                                    <>
+                                      <span className="inline-flex items-center rounded-md bg-[#e8f2ea] px-2 py-0.5 font-semibold text-[#2f6840]">
+                                        Valor já recebido na compra do pacote
+                                      </span>
+                                      {record.operatorShareCents > 0 ? (
+                                        <strong className="font-bold text-[#805d12]">
+                                          Repasse operador:{" "}
+                                          {formatCurrency(
+                                            record.operatorShareCents,
+                                          )}
+                                        </strong>
+                                      ) : (
+                                        tipCents > 0 && (
+                                          <strong className="font-bold text-[#2f6840]">
+                                            Gorjeta admin: +{" "}
+                                            {formatCurrency(tipCents)}
+                                          </strong>
+                                        )
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-[#617067]">
+                                        Ref.:{" "}
+                                        {formatCurrency(record.priceCents)}
+                                        {tipCents > 0
+                                          ? ` (inclui ${formatCurrency(tipCents)} gorjeta)`
+                                          : ""}
+                                      </span>
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
+                                        Sua parte:{" "}
+                                        <strong className="text-sm">
+                                          {formatCurrency(
+                                            record.operatorShareCents,
+                                          )}
+                                        </strong>
+                                      </span>
+                                    </>
+                                  )
+                                ) : (
+                                  <>
+                                    <span className="text-[#617067]">
+                                      {tipCents > 0
+                                        ? `Serviço: ${formatCurrency(record.priceCents)} · Total: ${formatCurrency(totalCents)}`
+                                        : `Valor bruto: ${formatCurrency(record.priceCents)}`}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-[#e8f2ea] px-2 py-0.5 font-bold text-[#2f6840]">
+                                      {role === "admin"
+                                        ? "Total:"
+                                        : tipCents > 0
+                                          ? "Minha parte:"
+                                          : "Minha parte (50%):"}{" "}
+                                      <strong className="text-sm">
+                                        {formatCurrency(
+                                          role === "admin"
+                                            ? totalCents
+                                            : record.operatorShareCents,
+                                        )}
+                                      </strong>
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
             )}
-          </Panel>
+          </ExpandablePanel>
         </>
       )}
     </div>

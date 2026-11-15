@@ -12,11 +12,7 @@ function roleLabel(role: UserReportSummary["role"]): string {
   return "Não identificado";
 }
 
-export function UserReportGroups({
-  users,
-}: {
-  users: UserReportSummary[];
-}) {
+export function UserReportGroups({ users }: { users: UserReportSummary[] }) {
   return (
     <Panel className="grid gap-4">
       <div>
@@ -109,6 +105,24 @@ export function UserReportGroups({
                         Ref.: {formatCurrency(user.packCutsReferenceCents ?? 0)}
                         {typeof user.packCommissionCents === "number"
                           ? ` · Comissão: ${formatCurrency(user.packCommissionCents)}`
+                          : ""}
+                      </span>
+                    </div>
+                  )}
+                  {Boolean(
+                    user.loyaltyCutsCount && user.loyaltyCutsCount > 0,
+                  ) && (
+                    <div className="col-span-2 rounded-lg border border-[#ead9a6] bg-[#fff9e8] p-2.5 text-xs text-[#805d12]">
+                      <strong>
+                        Cortes Fidelidade (Grátis): {user.loyaltyCutsCount}{" "}
+                        {user.loyaltyCutsCount === 1 ? "corte" : "cortes"}
+                      </strong>
+                      <span className="block text-[#6e4f0e]">
+                        Ref.:{" "}
+                        {formatCurrency(user.loyaltyCutsReferenceCents ?? 0)}
+                        {typeof user.loyaltyCommissionCents === "number" &&
+                        user.loyaltyCommissionCents > 0
+                          ? ` · Comissão: ${formatCurrency(user.loyaltyCommissionCents)}`
                           : ""}
                       </span>
                     </div>
