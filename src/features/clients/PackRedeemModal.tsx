@@ -43,9 +43,9 @@ export function PackRedeemModal({
       setTipCents(0);
       return;
     }
-    window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
       tipInputRef.current?.focus();
-    });
+    }, 190);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -144,11 +144,11 @@ export function PackRedeemModal({
       </div>
 
       <form
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
         onSubmit={(event) => void handleSubmit(event)}
       >
-        <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
-          <div className="rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          <div className="shrink-0 rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
             <div className="flex items-center justify-between gap-2">
               <strong className="min-w-0 truncate text-sm text-[#17211b]">
                 {activePack.planName}
@@ -164,7 +164,7 @@ export function PackRedeemModal({
           </div>
 
           <label
-            className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[0.65rem] border p-2.5 text-sm font-bold text-[#34443a] transition ${
+            className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-2.5 rounded-[0.65rem] border p-2.5 text-sm font-bold text-[#34443a] transition ${
               includeTip
                 ? "border-[#4a7957] bg-[#e8f2ea]"
                 : "border-[#dce5dd] bg-white"
@@ -183,7 +183,7 @@ export function PackRedeemModal({
             {includeTip && (
               <m.div
                 animate={{ height: "auto", opacity: 1 }}
-                className="overflow-hidden"
+                className="shrink-0 overflow-hidden"
                 exit={{ height: 0, opacity: 0 }}
                 initial={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.18 }}
@@ -220,7 +220,7 @@ export function PackRedeemModal({
             )}
           </AnimatePresence>
 
-          <label className="grid gap-1 text-sm font-bold text-[#34443a]">
+          <label className="grid shrink-0 gap-1 text-sm font-bold text-[#34443a]">
             Observações do corte (opcional)
             <input
               className="min-h-11 w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3 py-2 text-sm font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
@@ -233,15 +233,17 @@ export function PackRedeemModal({
           </label>
 
           {error && (
-            <FeedbackMessage
-              message={error}
-              onClose={() => setError(null)}
-              variant="error"
-            />
+            <div className="shrink-0">
+              <FeedbackMessage
+                message={error}
+                onClose={() => setError(null)}
+                variant="error"
+              />
+            </div>
           )}
         </div>
 
-        <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-5 pt-3 pb-4">
+        <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-4 pt-3 pb-4 sm:px-5">
           <Button
             className="!min-h-11 h-11 px-4 text-sm whitespace-nowrap"
             disabled={submitting}

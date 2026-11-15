@@ -1,6 +1,10 @@
 import { ApiError, request } from "./client";
-import { invalidateClientQueries } from "./clientInvalidation";
+import {
+  invalidateClientQueries,
+  invalidateReportQueries,
+} from "./clientInvalidation";
 import type {
+  CancelServiceRecordResponse,
   Client,
   ClientPackDetail,
   ClientServiceRecordsFilterType,
@@ -67,6 +71,32 @@ export async function createServiceRecord(
       ? Math.trunc(input.tipCents)
       : 0;
 
+  if (input.useLoyaltyReward) {
+    const payload = {
+      clientId: input.clientId,
+      useLoyaltyReward: true,
+      ...(input.serviceTypeId ? { serviceTypeId: input.serviceTypeId } : {}),
+      ...(input.paymentMethod ? { paymentMethod: input.paymentMethod } : {}),
+      ...(tipCents > 0 ? { tipCents } : {}),
+      ...(tipCents > 0 && input.tipPaymentMethod
+        ? { tipPaymentMethod: input.tipPaymentMethod }
+        : {}),
+      ...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
+      ...(input.notes ? { notes: input.notes } : {}),
+    };
+
+    const created = await request<ServiceRecord>("/service-records", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    invalidateClientQueries(created.clientId ?? input.clientId);
+    invalidateReportQueries();
+    return created;
+  }
+
   if (input.useActivePack) {
     const payload = {
       clientId: input.clientId,
@@ -88,6 +118,7 @@ export async function createServiceRecord(
       body: JSON.stringify(payload),
     });
     invalidateClientQueries(created.clientId ?? input.clientId);
+    invalidateReportQueries();
     return created;
   }
 
@@ -113,6 +144,7 @@ export async function createServiceRecord(
     body: JSON.stringify(payload),
   });
   invalidateClientQueries(created.clientId ?? input.clientId);
+  invalidateReportQueries();
   return created;
 }
 
@@ -124,17 +156,16 @@ export async function cancelServiceRecord(
   recordId: string,
   reason?: string,
   clientId?: string,
-): Promise<ServiceRecord | void> {
-  const result = await request<ServiceRecord | void>(
-    `/service-records/${encodeURIComponent(recordId)}/cancel`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
+): Promise<CancelServiceRecordResponse | ServiceRecord | void> {
+  const result = await request<
+    CancelServiceRecordResponse | ServiceRecord | void
+  >(`/service-records/${encodeURIComponent(recordId)}/cancel`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
+  });
   const resolvedClientId =
     result &&
     typeof result === "object" &&
@@ -143,6 +174,7 @@ export async function cancelServiceRecord(
       ? result.clientId
       : clientId;
   invalidateClientQueries(resolvedClientId);
+  invalidateReportQueries();
   return result;
 }
 
@@ -235,6 +267,7 @@ export async function createClientPack(
     body: JSON.stringify(payload),
   });
   invalidateClientQueries(created.clientId ?? input.clientId);
+  invalidateReportQueries();
   return created;
 }
 
@@ -301,6 +334,7 @@ export async function cancelClientPack(
     },
   );
   invalidateClientQueries(result.clientId ?? clientId);
+  invalidateReportQueries();
   return result;
 }
 

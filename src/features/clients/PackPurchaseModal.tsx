@@ -201,16 +201,16 @@ export function PackPurchaseModal({
       </div>
 
       {loadingPlans ? (
-        <div className="px-5 py-4">
+        <div className="flex min-h-[26rem] items-center justify-center px-4 py-4 sm:px-5">
           <LoadingMessage>Carregando planos de pacotes...</LoadingMessage>
         </div>
       ) : (
         <form
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
           onSubmit={(event) => void handleSubmit(event)}
         >
-          <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
-            <fieldset className="grid gap-2.5 border-0 p-0">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+            <fieldset className="grid shrink-0 gap-2.5 border-0 p-0">
               <legend className="mb-1.5 text-sm font-bold text-[#34443a]">
                 Escolha o plano (Corte Masculino)
               </legend>
@@ -237,7 +237,7 @@ export function PackPurchaseModal({
                         type="radio"
                         value={plan.id}
                       />
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <span
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
                             selected
@@ -247,7 +247,7 @@ export function PackPurchaseModal({
                         >
                           {selected && <Check size={14} strokeWidth={3} />}
                         </span>
-                        <div className="grid gap-0.5">
+                        <div className="grid min-w-0 gap-0.5">
                           <strong className="text-base text-[#17211b]">
                             {plan.name}
                           </strong>
@@ -257,7 +257,7 @@ export function PackPurchaseModal({
                           </span>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <strong className="block text-lg font-extrabold text-[#2f6840]">
                           {formatCurrency(plan.priceCents)}
                         </strong>
@@ -269,9 +269,9 @@ export function PackPurchaseModal({
             </fieldset>
 
             {needsProfileCompletion && (
-              <div className="grid gap-3 rounded-xl border border-[#c8d6ca] bg-[#f5f7f4] p-3.5">
+              <div className="grid shrink-0 gap-3 rounded-xl border border-[#c8d6ca] bg-[#f5f7f4] p-3.5">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.06em] text-[#2f6840]">
-                  <ShieldCheck size={16} />
+                  <ShieldCheck className="shrink-0" size={16} />
                   <span>Completar dados do cliente para o pacote</span>
                 </div>
                 <label className="grid gap-1 text-sm font-bold text-[#34443a]">
@@ -310,22 +310,24 @@ export function PackPurchaseModal({
               </div>
             )}
 
-            <PaymentMethodSelector
-              legend="Forma de pagamento do pacote"
-              name="pack-payment-method"
-              onChange={(method) => {
-                setPaymentMethod(method);
-                if (error) setError(null);
-              }}
-              value={paymentMethod}
-            />
+            <div className="shrink-0">
+              <PaymentMethodSelector
+                legend="Forma de pagamento do pacote"
+                name="pack-payment-method"
+                onChange={(method) => {
+                  setPaymentMethod(method);
+                  if (error) setError(null);
+                }}
+                value={paymentMethod}
+              />
+            </div>
 
-            <div className="grid gap-3 rounded-xl border border-[#c8d6ca] bg-[#f5f7f4] p-3.5">
+            <div className="grid shrink-0 gap-3 rounded-xl border border-[#c8d6ca] bg-[#f5f7f4] p-3.5">
               <label className="flex cursor-pointer items-center justify-between gap-3 select-none">
-                <div className="grid gap-0.5">
+                <div className="grid min-w-0 gap-0.5">
                   <span className="flex items-center gap-1.5 text-sm font-bold text-[#17211b]">
-                    <Scissors className="text-[#2f6840]" size={16} />
-                    Registrar 1º corte agora
+                    <Scissors className="shrink-0 text-[#2f6840]" size={16} />
+                    <span>Registrar 1º corte agora</span>
                   </span>
                   <span className="text-xs text-[#617067]">
                     Debita o 1º atendimento para o usuário atual nesta mesma transação.
@@ -333,7 +335,7 @@ export function PackPurchaseModal({
                 </div>
                 <input
                   checked={redeemFirstCut}
-                  className="h-5 w-5 rounded border-[#c8d6ca] text-[#2f6840] focus:ring-[#2f6840]"
+                  className="h-5 w-5 shrink-0 rounded border-[#c8d6ca] text-[#2f6840] focus:ring-[#2f6840]"
                   onChange={(event) => {
                     const checked = event.target.checked;
                     setRedeemFirstCut(checked);
@@ -350,7 +352,7 @@ export function PackPurchaseModal({
                 {redeemFirstCut && (
                   <m.div
                     animate={{ height: "auto", opacity: 1 }}
-                    className="overflow-hidden"
+                    className="shrink-0 overflow-hidden"
                     exit={{ height: 0, opacity: 0 }}
                     initial={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.18 }}
@@ -398,7 +400,7 @@ export function PackPurchaseModal({
               </AnimatePresence>
             </div>
 
-            <label className="grid gap-1 text-sm font-bold text-[#34443a]">
+            <label className="grid shrink-0 gap-1 text-sm font-bold text-[#34443a]">
               Observações (opcional)
               <input
                 className={fieldClass}
@@ -411,15 +413,17 @@ export function PackPurchaseModal({
             </label>
 
             {error && (
-              <FeedbackMessage
-                message={error}
-                onClose={() => setError(null)}
-                variant="error"
-              />
+              <div className="shrink-0">
+                <FeedbackMessage
+                  message={error}
+                  onClose={() => setError(null)}
+                  variant="error"
+                />
+              </div>
             )}
           </div>
 
-          <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-5 pt-3 pb-4">
+          <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-4 pt-3 pb-4 sm:px-5">
             <Button
               className="!min-h-11 h-11 px-4 text-sm whitespace-nowrap"
               disabled={submitting}

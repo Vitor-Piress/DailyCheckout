@@ -193,3 +193,29 @@ export function formatDayMonthSaoPaulo(
     return "—";
   }
 }
+
+export function getCurrentSaoPauloDateTime(): {
+  shortDate: string;
+  fullDate: string;
+  time: string;
+} {
+  const now = new Date();
+  return {
+    shortDate: new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    }).format(now),
+    fullDate: new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "America/Sao_Paulo",
+    }).format(now),
+    time: new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    }).format(now),
+  };
+}

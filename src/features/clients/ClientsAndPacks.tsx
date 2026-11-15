@@ -3,6 +3,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Edit3,
+  Gift,
+  IdCard,
+  Mail,
   PackagePlus,
   Phone,
   RefreshCw,
@@ -31,8 +34,11 @@ import {
 } from "../../lib/formatters";
 import { ClientDetailsModal } from "./ClientDetailsModal";
 import { ClientRegistrationModal } from "./ClientRegistrationModal";
+import { LoyaltyRedeemModal } from "./LoyaltyRedeemModal";
+import { LoyaltyStampGrid } from "./LoyaltyStampGrid";
 import { PackPurchaseModal } from "./PackPurchaseModal";
 import { PackRedeemModal } from "./PackRedeemModal";
+import { getClientLoyalty } from "./loyaltyUtils";
 
 const PAGE_LIMIT = 20;
 
@@ -54,6 +60,8 @@ export function ClientsAndPacks() {
   const [redeemTargetClient, setRedeemTargetClient] = useState<Client | null>(
     null,
   );
+  const [redeemLoyaltyTargetClient, setRedeemLoyaltyTargetClient] =
+    useState<Client | null>(null);
   const [historyTargetClient, setHistoryTargetClient] =
     useState<Client | null>(null);
 
@@ -222,10 +230,22 @@ export function ClientsAndPacks() {
     }
   }
 
+  function handleLoyaltyRedeemed(record: ServiceRecord, updatedClient: Client) {
+    setRedeemLoyaltyTargetClient(null);
+    upsertClientInList(updatedClient);
+    const shareText =
+      role === "daily_operator"
+        ? ` · Minha parte: ${formatCurrency(record.operatorShareCents)}`
+        : "";
+    setFeedback(
+      `Corte gratuito de fidelidade resgatado para ${updatedClient.name}! Fidelidade reiniciada para 0/10.${shareText}`,
+    );
+  }
+
   return (
-    <section className="grid gap-5">
+    <section className="grid min-w-0 gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
             Fidelização & Assinaturas
           </p>
@@ -251,7 +271,7 @@ export function ClientsAndPacks() {
         </Button>
       </div>
 
-      <Panel className="grid gap-3 !p-3.5 sm:!p-4">
+      <Panel className="grid min-w-0 gap-3 !p-3.5 sm:!p-4">
         <div className="relative flex items-center">
           <Search
             aria-hidden="true"
@@ -345,9 +365,10 @@ export function ClientsAndPacks() {
           </div>
         </EmptyState>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid min-w-0 gap-3">
           {clients.map((client) => {
             const pack = client.activePack;
+            const loyalty = getClientLoyalty(client);
             const hasActivePack =
               pack?.status === "active" && pack.remainingCuts > 0;
             const isExhausted =
@@ -364,73 +385,92 @@ export function ClientsAndPacks() {
 
             return (
               <Panel
-                className="grid gap-3 !p-4 transition hover:border-[#9fc2a7]"
+                className="grid min-w-0 gap-3 overflow-hidden !p-3.5 transition hover:border-[#9fc2a7] sm:!p-4"
                 key={client.id}
               >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="grid min-w-0 flex-1 gap-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <strong className="truncate text-base leading-snug text-[#17211b] sm:text-lg">
+                <div className="grid min-w-0 gap-2.5">
+                  <div className="flex min-w-0 items-start justify-between gap-2.5">
+                    <div className="grid min-w-0 flex-1 justify-items-start gap-1">
+                      <strong className="w-full truncate text-base leading-snug text-[#17211b] sm:text-lg">
                         {client.name}
                       </strong>
-                      <button
-                        aria-label={`Editar dados de ${client.name}`}
-                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#dce5dd] bg-[#f5f7f4] px-2 text-xs font-bold whitespace-nowrap text-[#4a7957] transition hover:border-[#4a7957] hover:bg-[#e8f2ea]"
-                        onClick={() => {
-                          setEditingClient(client);
-                          setRegistrationModalOpen(true);
-                        }}
-                        title="Editar cadastro"
-                        type="button"
-                      >
-                        <Edit3 size={12} />
-                        <span>Editar</span>
-                      </button>
-                    </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-[#617067]">
-                      <span className="inline-flex items-center gap-1 font-bold text-[#34443a]">
-                        <Phone className="shrink-0 text-[#4a7957]" size={13} />
-                        {formatPhone(client.phone)}
-                      </span>
-                      {client.cpf && <span>CPF: {formatCpf(client.cpf)}</span>}
-                      {client.email && (
-                        <span className="truncate">{client.email}</span>
+                      {hasActivePack && pack && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#9fc2a7] bg-[#e8f2ea] px-2.5 py-0.5 text-[11px] font-extrabold whitespace-nowrap text-[#245c35]">
+                          <CheckCircle2 size={12} />
+                          <span>Pacote ativo</span>
+                        </span>
+                      )}
+
+                      {isExhausted && pack && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#ead9a6] bg-[#fff4d6] px-2.5 py-0.5 text-[11px] font-extrabold whitespace-nowrap text-[#805d12]">
+                          <AlertTriangle size={12} />
+                          <span>Pacote esgotado</span>
+                        </span>
+                      )}
+
+                      {!pack && (
+                        <span className="inline-flex items-center rounded-full border border-[#dce5dd] bg-[#f5f7f4] px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-[#617067]">
+                          Sem pacote ativo
+                        </span>
                       )}
                     </div>
+
+                    <button
+                      aria-label={`Editar dados de ${client.name}`}
+                      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#dce5dd] bg-[#f5f7f4] px-2 text-xs font-bold whitespace-nowrap text-[#4a7957] transition hover:border-[#4a7957] hover:bg-[#e8f2ea]"
+                      onClick={() => {
+                        setEditingClient(client);
+                        setRegistrationModalOpen(true);
+                      }}
+                      title="Editar cadastro"
+                      type="button"
+                    >
+                      <Edit3 size={12} />
+                      <span>Editar</span>
+                    </button>
                   </div>
 
-                  {hasActivePack && pack && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#9fc2a7] bg-[#e8f2ea] px-2.5 py-1 text-xs font-extrabold whitespace-nowrap text-[#245c35]">
-                      <CheckCircle2 size={14} />
-                      <span>Pacote ativo</span>
+                  <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1.5 border-t border-[#eef3ef] pt-2 text-xs min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+                    <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-[#23372a] tabular-nums">
+                      <Phone className="shrink-0 text-[#4a7957]" size={13} />
+                      <span className="truncate">{formatPhone(client.phone)}</span>
                     </span>
-                  )}
 
-                  {isExhausted && pack && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ead9a6] bg-[#fff4d6] px-2.5 py-1 text-xs font-extrabold whitespace-nowrap text-[#805d12]">
-                      <AlertTriangle size={14} />
-                      <span>Pacote esgotado</span>
-                    </span>
-                  )}
+                    {client.cpf && (
+                      <span
+                        className="inline-flex min-w-0 items-center gap-1.5 font-medium text-[#4b5a50] tabular-nums"
+                        title="CPF do cliente"
+                      >
+                        <IdCard className="shrink-0 text-[#4a7957]" size={13} />
+                        <span className="truncate">{formatCpf(client.cpf)}</span>
+                      </span>
+                    )}
 
-                  {!pack && (
-                    <span className="inline-flex shrink-0 items-center rounded-full border border-[#dce5dd] bg-[#f5f7f4] px-2.5 py-1 text-xs font-bold whitespace-nowrap text-[#617067]">
-                      Sem pacote ativo
-                    </span>
-                  )}
+                    {client.email && (
+                      <span
+                        className="inline-flex min-w-0 items-center gap-1.5 font-medium text-[#4b5a50] min-[360px]:col-span-2 sm:min-w-0"
+                        title={client.email}
+                      >
+                        <Mail className="shrink-0 text-[#4a7957]" size={13} />
+                        <span className="truncate">{client.email}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {pack && (
                   <div
-                    className={`grid gap-2 rounded-xl border px-3.5 py-2.5 text-xs ${
+                    className={`grid min-w-0 gap-2 rounded-xl border px-3 py-2.5 text-xs ${
                       hasActivePack
                         ? "border-[#c8d6ca] bg-[#f5f7f4] text-[#23372a]"
                         : "border-[#ead9a6] bg-[#fff9e8] text-[#805d12]"
                     }`}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-bold">{pack.planName}</span>
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-1.5">
+                      <span className="min-w-0 truncate font-bold">
+                        {pack.planName}
+                      </span>
                       <span className="font-bold">
                         {hasActivePack
                           ? `${pack.usedCuts}/${pack.totalCuts} usados · Restam ${pack.remainingCuts} ${pack.remainingCuts === 1 ? "corte" : "cortes"}`
@@ -452,45 +492,64 @@ export function ClientsAndPacks() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-[1fr_auto] items-center gap-2 pt-0.5">
+                <div className="grid min-w-0 gap-2">
+                  <LoyaltyStampGrid
+                    loyalty={loyalty}
+                    showRedeemedCount
+                    variant="compact"
+                  />
+
+                  {loyalty.freeCutAvailable && (
+                    <Button
+                      className="!min-h-10 h-10 flex w-full items-center justify-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap sm:w-auto sm:justify-self-start"
+                      onClick={() => setRedeemLoyaltyTargetClient(client)}
+                      type="button"
+                    >
+                      <Gift size={14} />
+                      <span>Resgatar Corte Grátis</span>
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-0.5">
                   {hasActivePack ? (
                     <Button
-                      className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                      className="!min-h-11 h-11 flex min-w-0 items-center justify-center gap-1.5 px-2.5 py-2 text-xs whitespace-nowrap min-[380px]:px-3.5 min-[380px]:text-sm"
                       onClick={() => setRedeemTargetClient(client)}
                       type="button"
                     >
-                      <Scissors size={16} />
+                      <Scissors className="shrink-0" size={15} />
                       <span>Descontar 1 Corte</span>
                     </Button>
                   ) : isExhausted ? (
                     <Button
-                      className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                      className="!min-h-11 h-11 flex min-w-0 items-center justify-center gap-1.5 px-2.5 py-2 text-xs whitespace-nowrap min-[380px]:px-3.5 min-[380px]:text-sm"
                       onClick={() => setPurchaseTargetClient(client)}
                       type="button"
                     >
-                      <PackagePlus size={16} />
+                      <PackagePlus className="shrink-0" size={15} />
                       <span>Renovar Pacote</span>
                     </Button>
                   ) : (
                     <Button
-                      className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                      className="!min-h-11 h-11 flex min-w-0 items-center justify-center gap-1.5 px-2.5 py-2 text-xs whitespace-nowrap min-[380px]:px-3.5 min-[380px]:text-sm"
                       onClick={() => setPurchaseTargetClient(client)}
                       type="button"
                       variant="secondary"
                     >
-                      <PackagePlus size={16} />
+                      <PackagePlus className="shrink-0" size={15} />
                       <span>Vender Pacote</span>
                     </Button>
                   )}
 
                   <Button
-                    className="!min-h-11 h-11 flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm whitespace-nowrap"
+                    className="!min-h-11 h-11 flex shrink-0 items-center justify-center gap-1.5 px-2.5 py-2 text-xs whitespace-nowrap min-[380px]:px-3.5 min-[380px]:text-sm"
                     onClick={() => setHistoryTargetClient(client)}
                     title="Ver detalhes e histórico do cliente"
                     type="button"
                     variant="secondary"
                   >
-                    <ClipboardCheck size={16} />
+                    <ClipboardCheck className="shrink-0" size={15} />
                     <span>Histórico</span>
                   </Button>
                 </div>
@@ -523,7 +582,7 @@ export function ClientsAndPacks() {
                 ? debouncedQuery
                 : ""
             }
-            key={editingClient?.id ?? "new-client"}
+            key="client-registration-modal"
             onClose={() => {
               setRegistrationModalOpen(false);
               setEditingClient(null);
@@ -565,6 +624,17 @@ export function ClientsAndPacks() {
             key={purchaseTargetClient.id}
             onClose={() => setPurchaseTargetClient(null)}
             onPurchased={handlePackPurchased}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {redeemLoyaltyTargetClient && (
+          <LoyaltyRedeemModal
+            client={redeemLoyaltyTargetClient}
+            key={`loyalty-${redeemLoyaltyTargetClient.id}`}
+            onClose={() => setRedeemLoyaltyTargetClient(null)}
+            onRedeemed={handleLoyaltyRedeemed}
           />
         )}
       </AnimatePresence>

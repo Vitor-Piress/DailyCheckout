@@ -2,12 +2,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
+  Gift,
   PackagePlus,
   Phone,
   Scissors,
   X,
 } from "lucide-react";
-import { m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { subscribeClientInvalidation } from "../../api/clientInvalidation";
 import {
@@ -25,6 +26,7 @@ import type {
   ClientServiceRecordItem,
   ClientServiceRecordsFilterType,
   ClientServiceRecordsSummary,
+  PaymentMethod,
 } from "../../api/types";
 import { useAuth } from "../../auth/authContext";
 import { Button } from "../../components/ui/Button";
@@ -40,6 +42,13 @@ import {
 } from "../../lib/formatters";
 import { ClientPacksTab } from "./ClientPacksTab";
 import { ClientServiceHistoryTab } from "./ClientServiceHistoryTab";
+import { LoyaltyRedeemFields } from "./LoyaltyRedeemFields";
+import { LoyaltyStampGrid } from "./LoyaltyStampGrid";
+import {
+  formatLoyaltyRemainingLabel,
+  getClientLoyalty,
+  getOptionalTipError,
+} from "./loyaltyUtils";
 
 const SERVICE_RECORDS_PAGE_LIMIT = 20;
 const MAX_SERVICE_RECORDS_PAGE_LIMIT = 50;
@@ -106,6 +115,14 @@ export function ClientDetailsModal({
   const [packsRefreshNonce, setPacksRefreshNonce] = useState(0);
 
   const [redeemingPackCut, setRedeemingPackCut] = useState(false);
+  const [redeemingLoyaltyCut, setRedeemingLoyaltyCut] = useState(false);
+  const [redeemLoyaltyOpen, setRedeemLoyaltyOpen] = useState(false);
+  const [loyaltyIncludeTip, setLoyaltyIncludeTip] = useState(false);
+  const [loyaltyTipCents, setLoyaltyTipCents] = useState(0);
+  const [loyaltyTipTouched, setLoyaltyTipTouched] = useState(false);
+  const [loyaltyTipPaymentMethod, setLoyaltyTipPaymentMethod] =
+    useState<PaymentMethod>("pix");
+  const [loyaltyNotes, setLoyaltyNotes] = useState("");
   const [cancelingRecordId, setCancelingRecordId] = useState<string | null>(
     null,
   );
@@ -118,6 +135,7 @@ export function ClientDetailsModal({
   const selectedPackIdRef = useRef(client.activePack?.id ?? "");
   const suppressInvalidationRef = useRef(false);
   const onClientUpdatedRef = useRef(onClientUpdated);
+  const loyaltyTipInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     onClientUpdatedRef.current = onClientUpdated;
@@ -475,6 +493,7 @@ export function ClientDetailsModal({
       activePack.status !== "active" ||
       activePack.remainingCuts <= 0 ||
       redeemingPackCut ||
+      redeemingLoyaltyCut ||
       Boolean(cancelingRecordId) ||
       cancelingPack
     ) {
@@ -546,20 +565,142 @@ export function ClientDetailsModal({
     }
   }
 
-  async function handleCancelRecord(
-    recordId: string,
-    isPackCut: boolean,
-    serviceName: string,
-  ) {
-    if (redeemingPackCut || cancelingRecordId || cancelingPack) {
+  function resetLoyaltyRedeemInputs() {
+    setLoyaltyIncludeTip(false);
+    setLoyaltyTipCents(0);
+    setLoyaltyTipTouched(false);
+    setLoyaltyTipPaymentMethod("pix");
+    setLoyaltyNotes("");
+  }
+
+  function handleToggleLoyaltyTip(checked: boolean) {
+    setLoyaltyIncludeTip(checked);
+    setLoyaltyTipTouched(false);
+    if (actionError) setActionError(null);
+    if (!checked) {
+      setLoyaltyTipCents(0);
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      loyaltyTipInputRef.current?.focus();
+    });
+  }
+
+  async function handleConfirmLoyaltyRedeem() {
+    const currentLoyalty = getClientLoyalty(currentClient);
+    if (
+      !currentLoyalty.freeCutAvailable ||
+      redeemingLoyaltyCut ||
+      redeemingPackCut ||
+      Boolean(cancelingRecordId) ||
+      cancelingPack
+    ) {
       return;
     }
 
-    const confirmed = window.confirm(
-      isPackCut
-        ? `Confirma o cancelamento deste corte (${serviceName}) do pacote?\n\nO saldo de 1 corte será devolvido automaticamente ao pacote do cliente.`
-        : `Confirma o cancelamento do atendimento "${serviceName}"?\n\nO atendimento será cancelado e desconsiderado no histórico e relatórios.`,
+    const tipValidationError = getOptionalTipError(
+      loyaltyIncludeTip,
+      loyaltyTipCents,
     );
+    if (tipValidationError) {
+      setLoyaltyTipTouched(true);
+      setActionError(tipValidationError);
+      return;
+    }
+
+    setRedeemingLoyaltyCut(true);
+    setActionError(null);
+    setActionFeedback(null);
+    suppressInvalidationRef.current = true;
+    try {
+      const record = await createServiceRecord({
+        clientId: currentClient.id,
+        useLoyaltyReward: true,
+        ...(loyaltyIncludeTip
+          ? {
+              tipCents: Math.trunc(loyaltyTipCents),
+              tipPaymentMethod: loyaltyTipPaymentMethod,
+            }
+          : {}),
+        ...(loyaltyNotes.trim() ? { notes: loyaltyNotes.trim() } : {}),
+      });
+      suppressInvalidationRef.current = false;
+
+      const { clientRefreshed } = await refreshAllAfterMutation(
+        selectedPackIdRef.current,
+      );
+      if (!clientRefreshed) {
+        const updatedClient: Client = {
+          ...currentClient,
+          loyalty: record.loyaltySummary ?? {
+            currentCuts: 0,
+            targetCuts: currentLoyalty.targetCuts,
+            remainingCuts: currentLoyalty.targetCuts,
+            freeCutAvailable: false,
+            totalRewardsRedeemed: currentLoyalty.totalRewardsRedeemed + 1,
+          },
+        };
+        setCurrentClient(updatedClient);
+        onClientUpdatedRef.current(updatedClient);
+      }
+
+      setRedeemLoyaltyOpen(false);
+      resetLoyaltyRedeemInputs();
+
+      const shareText =
+        role === "daily_operator"
+          ? ` · Minha parte: ${formatCurrency(record.operatorShareCents)}`
+          : "";
+      setActionFeedback(
+        `Corte gratuito de fidelidade resgatado! Contador reiniciado para 0/${currentLoyalty.targetCuts}.${shareText}`,
+      );
+    } catch (cause: unknown) {
+      setActionError(
+        getApiErrorMessage(
+          cause,
+          "Não foi possível resgatar o corte gratuito de fidelidade.",
+        ),
+      );
+    } finally {
+      suppressInvalidationRef.current = false;
+      setRedeemingLoyaltyCut(false);
+    }
+  }
+
+  async function handleCancelRecord(
+    recordId: string,
+    options: {
+      isPackCut: boolean;
+      isLoyaltyReward?: boolean;
+      countsForLoyalty?: boolean;
+      serviceName: string;
+    },
+  ) {
+    if (
+      redeemingPackCut ||
+      redeemingLoyaltyCut ||
+      cancelingRecordId ||
+      cancelingPack
+    ) {
+      return;
+    }
+
+    const {
+      isPackCut,
+      isLoyaltyReward = false,
+      countsForLoyalty = false,
+      serviceName,
+    } = options;
+
+    const confirmMessage = isLoyaltyReward
+      ? `Confirma o estorno deste corte gratuito de fidelidade (${serviceName})?\n\nO prêmio de 10/10 voltará a ficar disponível para o cliente e o resgate será removido dos relatórios.`
+      : isPackCut
+        ? `Confirma o cancelamento deste corte (${serviceName}) do pacote?\n\nO saldo de 1 corte será devolvido automaticamente ao pacote do cliente.`
+        : countsForLoyalty
+          ? `Confirma o cancelamento do atendimento "${serviceName}"?\n\nO atendimento será cancelado, desconsiderado nos relatórios e a contagem de fidelidade do cliente será recalculada.`
+          : `Confirma o cancelamento do atendimento "${serviceName}"?\n\nO atendimento será cancelado e desconsiderado no histórico e relatórios.`;
+
+    const confirmed = window.confirm(confirmMessage);
     if (!confirmed) return;
 
     setCancelingRecordId(recordId);
@@ -567,20 +708,39 @@ export function ClientDetailsModal({
     setActionFeedback(null);
     suppressInvalidationRef.current = true;
     try {
-      await cancelServiceRecord(
+      const cancelResponse = await cancelServiceRecord(
         recordId,
-        isPackCut
-          ? "Cancelado na fiscalização do cliente"
-          : "Cancelado no histórico do cliente",
+        isLoyaltyReward
+          ? "Estorno de cortesia fidelidade no detalhe do cliente"
+          : isPackCut
+            ? "Cancelado na fiscalização do cliente"
+            : "Cancelado no histórico do cliente",
         currentClient.id,
       );
       suppressInvalidationRef.current = false;
 
-      await refreshAllAfterMutation(selectedPackId);
+      const { clientRefreshed } = await refreshAllAfterMutation(selectedPackId);
+      if (
+        !clientRefreshed &&
+        cancelResponse &&
+        typeof cancelResponse === "object" &&
+        "loyaltySummary" in cancelResponse &&
+        cancelResponse.loyaltySummary
+      ) {
+        const nextClient: Client = {
+          ...currentClient,
+          loyalty: cancelResponse.loyaltySummary,
+        };
+        setCurrentClient(nextClient);
+        onClientUpdatedRef.current(nextClient);
+      }
+
       setActionFeedback(
-        isPackCut
-          ? "Corte cancelado e 1 crédito devolvido ao pacote."
-          : "Atendimento cancelado com sucesso.",
+        isLoyaltyReward
+          ? "Resgate de fidelidade estornado — corte gratuito disponível novamente (10/10)."
+          : isPackCut
+            ? "Corte cancelado e 1 crédito devolvido ao pacote."
+            : "Atendimento cancelado com sucesso.",
       );
     } catch (cause: unknown) {
       setActionError(
@@ -630,6 +790,7 @@ export function ClientDetailsModal({
   }
 
   const activePack = currentClient.activePack;
+  const loyalty = getClientLoyalty(currentClient);
   const hasActivePack =
     activePack?.status === "active" && activePack.remainingCuts > 0;
   const isExhaustedPack =
@@ -646,20 +807,24 @@ export function ClientDetailsModal({
         )
       : 0;
   const busyMutating =
-    redeemingPackCut || Boolean(cancelingRecordId) || cancelingPack;
+    redeemingPackCut ||
+    redeemingLoyaltyCut ||
+    Boolean(cancelingRecordId) ||
+    cancelingPack;
 
   return (
     <ModalOverlay
       disabled={busyMutating}
       maxWidthClass="max-w-[38rem]"
       onClose={onClose}
+      sheetClassName="min-h-[82dvh] sm:min-h-[34rem]"
     >
-      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-5 pt-4 pb-3.5">
-        <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e8eee9] px-4 pt-4 pb-3.5 sm:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8f2ea] text-[#2f6840]">
             <ClipboardCheck size={20} />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="m-0 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
               Detalhes & Histórico
             </p>
@@ -680,6 +845,7 @@ export function ClientDetailsModal({
 
         <IconButton
           aria-label="Fechar"
+          className="shrink-0"
           disabled={busyMutating}
           icon={<X size={18} />}
           onClick={onClose}
@@ -687,29 +853,33 @@ export function ClientDetailsModal({
         />
       </div>
 
-      <div className="grid flex-1 content-start gap-4 overflow-y-auto px-5 py-4">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
         {actionFeedback && (
-          <FeedbackMessage
-            message={actionFeedback}
-            onClose={() => setActionFeedback(null)}
-          />
+          <div className="shrink-0 min-w-0">
+            <FeedbackMessage
+              message={actionFeedback}
+              onClose={() => setActionFeedback(null)}
+            />
+          </div>
         )}
 
         {actionError && (
-          <FeedbackMessage
-            message={actionError}
-            onClose={() => setActionError(null)}
-            variant="error"
-          />
+          <div className="shrink-0 min-w-0">
+            <FeedbackMessage
+              message={actionError}
+              onClose={() => setActionError(null)}
+              variant="error"
+            />
+          </div>
         )}
 
         {/* 1. Faixa de Resumo Rápido */}
         <div
           aria-label="Resumo rápido de atendimentos"
-          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          className="grid shrink-0 min-w-0 grid-cols-2 gap-2 sm:grid-cols-5"
         >
-          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+          <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Atendimentos
             </span>
             <strong className="text-base font-extrabold text-[#17211b]">
@@ -717,8 +887,8 @@ export function ClientDetailsModal({
             </strong>
           </div>
 
-          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+          <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Avulsos
             </span>
             <strong className="text-base font-extrabold text-[#17211b]">
@@ -726,8 +896,8 @@ export function ClientDetailsModal({
             </strong>
           </div>
 
-          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+          <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Via pacote
             </span>
             <strong className="text-base font-extrabold text-[#2f6840]">
@@ -735,8 +905,17 @@ export function ClientDetailsModal({
             </strong>
           </div>
 
-          <div className="rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.04em] text-[#617067]">
+          <div className="min-w-0 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2">
+            <span className="block truncate text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
+              Fidelidade
+            </span>
+            <strong className="text-base font-extrabold text-[#805d12]">
+              {summary ? (summary.loyaltyServicesCount ?? 0) : "—"}
+            </strong>
+          </div>
+
+          <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] px-3 py-2 sm:col-span-1 sm:block">
+            <span className="block text-[11px] font-bold tracking-[0.04em] text-[#617067] uppercase">
               Última visita
             </span>
             <strong className="text-base font-extrabold text-[#17211b]">
@@ -745,10 +924,148 @@ export function ClientDetailsModal({
           </div>
         </div>
 
+        {/* Card de Programa de Fidelidade */}
+        <div
+          className={`grid shrink-0 min-w-0 gap-2.5 rounded-xl border p-3.5 ${
+            loyalty.freeCutAvailable
+              ? "border-[#ead9a6] bg-[#fff9e8]"
+              : "border-[#dce5dd] bg-[#f5f7f4]"
+          }`}
+        >
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div
+              className={`flex min-w-0 items-center gap-1.5 text-sm font-extrabold ${
+                loyalty.freeCutAvailable ? "text-[#805d12]" : "text-[#23372a]"
+              }`}
+            >
+              <Gift className="shrink-0" size={17} />
+              <span>Programa de Fidelidade</span>
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold whitespace-nowrap ${
+                loyalty.freeCutAvailable
+                  ? "bg-[#805d12] text-white"
+                  : "border border-[#dce5dd] bg-white text-[#2f6840]"
+              }`}
+            >
+              {loyalty.currentCuts}/{loyalty.targetCuts} cortes
+            </span>
+          </div>
+
+          <LoyaltyStampGrid
+            loyalty={loyalty}
+            showHeader={false}
+            variant="detailed"
+          />
+
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs">
+            <span
+              className={`font-bold ${
+                loyalty.freeCutAvailable ? "text-[#805d12]" : "text-[#23372a]"
+              }`}
+            >
+              {formatLoyaltyRemainingLabel(loyalty)}
+            </span>
+            <span className="font-medium text-[#617067]">
+              Prêmios já resgatados:{" "}
+              <strong className="text-[#17211b]">
+                {loyalty.totalRewardsRedeemed}
+              </strong>
+            </span>
+          </div>
+
+          <p className="m-0 text-[11px] leading-snug text-[#617067]">
+            Válido em Corte Masculino e Cabelo e Barba avulsos (não
+            cumulativo).
+          </p>
+
+          {loyalty.freeCutAvailable && (
+            <>
+              {!redeemLoyaltyOpen && (
+                <Button
+                  className="!min-h-10 h-10 flex w-full items-center justify-center gap-1.5 px-3.5 py-2 text-xs whitespace-nowrap sm:w-auto sm:justify-self-end"
+                  disabled={busyMutating}
+                  onClick={() => {
+                    resetLoyaltyRedeemInputs();
+                    setRedeemLoyaltyOpen(true);
+                  }}
+                  type="button"
+                >
+                  <Gift size={15} />
+                  <span>Resgatar Corte Grátis</span>
+                </Button>
+              )}
+
+              <AnimatePresence initial={false}>
+                {redeemLoyaltyOpen && (
+                  <m.div
+                    animate={{ height: "auto", opacity: 1 }}
+                    className="shrink-0 overflow-hidden"
+                    exit={{ height: 0, opacity: 0 }}
+                    initial={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <div className="grid gap-3 rounded-xl border border-[#ead9a6] bg-white p-3">
+                      <div className="flex items-center justify-between gap-2 text-xs font-bold text-[#805d12]">
+                        <span>Confirmar Corte Masculino Grátis (R$ 0,00)</span>
+                      </div>
+
+                      <LoyaltyRedeemFields
+                        compact
+                        disabled={busyMutating}
+                        includeTip={loyaltyIncludeTip}
+                        notes={loyaltyNotes}
+                        onChangeNotes={setLoyaltyNotes}
+                        onChangeTipCents={(cents) => {
+                          setLoyaltyTipCents(cents);
+                          setLoyaltyTipTouched(true);
+                          if (actionError) setActionError(null);
+                        }}
+                        onChangeTipPaymentMethod={setLoyaltyTipPaymentMethod}
+                        onToggleIncludeTip={handleToggleLoyaltyTip}
+                        radioGroupName={`details-loyalty-tip-${currentClient.id}`}
+                        tipCents={loyaltyTipCents}
+                        tipInputRef={loyaltyTipInputRef}
+                        tipPaymentMethod={loyaltyTipPaymentMethod}
+                        tipTouched={loyaltyTipTouched}
+                      />
+
+                      <div className="grid grid-cols-[auto_1fr] gap-2">
+                        <Button
+                          className="!min-h-10 h-10 px-3 text-xs whitespace-nowrap"
+                          disabled={busyMutating}
+                          onClick={() => {
+                            setRedeemLoyaltyOpen(false);
+                            resetLoyaltyRedeemInputs();
+                          }}
+                          type="button"
+                          variant="secondary"
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          className="!min-h-10 h-10 text-xs whitespace-nowrap"
+                          disabled={busyMutating}
+                          onClick={() => void handleConfirmLoyaltyRedeem()}
+                          type="button"
+                        >
+                          {redeemingLoyaltyCut
+                            ? "Resgatando..."
+                            : "Confirmar Resgate Grátis"}
+                        </Button>
+                      </div>
+                    </div>
+                  </m.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+        </div>
+
         {/* 2. Card de Pacote Ativo (quando aplicável) */}
         {hasActivePack && activePack && (
-          <div className="grid gap-2.5 rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="grid shrink-0 min-w-0 gap-2.5 rounded-xl border border-[#9fc2a7] bg-[#e8f2ea] p-3.5">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[#245c35]">
                 <CheckCircle2 className="shrink-0" size={17} />
                 <span className="truncate">{activePack.planName}</span>
@@ -765,7 +1082,7 @@ export function ClientDetailsModal({
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2.5">
               <span className="text-xs font-bold text-[#23372a]">
                 Restam {activePack.remainingCuts}{" "}
                 {activePack.remainingCuts === 1 ? "corte" : "cortes"} no saldo
@@ -788,8 +1105,8 @@ export function ClientDetailsModal({
         )}
 
         {isExhaustedPack && activePack && (
-          <div className="grid gap-2.5 rounded-xl border border-[#ead9a6] bg-[#fff4d6] p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="grid shrink-0 min-w-0 gap-2.5 rounded-xl border border-[#ead9a6] bg-[#fff4d6] p-3.5">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[#805d12]">
                 <AlertTriangle className="shrink-0" size={17} />
                 <span className="truncate">{activePack.planName} · Esgotado</span>
@@ -798,7 +1115,7 @@ export function ClientDetailsModal({
                 {activePack.usedCuts}/{activePack.totalCuts} cortes
               </span>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-[#6e4f0e]">
                 Todos os cortes deste pacote foram utilizados.
               </span>
@@ -823,7 +1140,7 @@ export function ClientDetailsModal({
         {/* 3. Segmented Control / 2 Abas Compactas */}
         <div
           aria-label="Seções do histórico do cliente"
-          className="grid grid-cols-2 gap-1 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-1"
+          className="grid shrink-0 min-w-0 grid-cols-2 gap-1 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-1"
           role="tablist"
         >
           {(
@@ -844,9 +1161,9 @@ export function ClientDetailsModal({
             return (
               <button
                 aria-selected={selected}
-                className={`relative inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
+                className={`inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
                   selected
-                    ? "text-[#2f6840]"
+                    ? "bg-white text-[#2f6840] shadow-xs"
                     : "text-[#617067] hover:text-[#23372a]"
                 }`}
                 key={tab.id}
@@ -854,17 +1171,10 @@ export function ClientDetailsModal({
                 role="tab"
                 type="button"
               >
-                {selected && (
-                  <m.span
-                    className="absolute inset-0 rounded-lg bg-white shadow-xs"
-                    layoutId={`client-details-tab-pill-${client.id}`}
-                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                  />
-                )}
-                <span className="relative z-10">{tab.label}</span>
+                <span className="truncate">{tab.label}</span>
                 {tab.count !== null && (
                   <span
-                    className={`relative z-10 rounded-full px-1.5 py-0.5 text-[11px] leading-none ${
+                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] leading-none ${
                       selected
                         ? "bg-[#e8f2ea] text-[#2f6840]"
                         : "bg-white/80 text-[#617067]"
@@ -878,70 +1188,72 @@ export function ClientDetailsModal({
           })}
         </div>
 
-        {activeTab === "services" ? (
-          <ClientServiceHistoryTab
-            cancelingRecordId={cancelingRecordId}
-            disabledActions={busyMutating}
-            error={serviceError}
-            filterType={filterType}
-            includeCanceled={includeCanceled}
-            items={serviceItems}
-            loadMoreError={serviceLoadMoreError}
-            loading={serviceLoading}
-            loadingMore={serviceLoadingMore}
-            onCancelRecord={(item) =>
-              void handleCancelRecord(
-                item.id,
-                item.isPackCut,
-                item.serviceName,
-              )
-            }
-            onDismissError={() => setServiceError(null)}
-            onDismissLoadMoreError={() => setServiceLoadMoreError(null)}
-            onFilterTypeChange={handleFilterTypeChange}
-            onLoadMore={() => void handleLoadMoreRecords()}
-            onRetry={handleRetryServiceRecords}
-            onToggleIncludeCanceled={handleToggleIncludeCanceled}
-            summary={summary}
-            total={serviceTotal}
-          />
-        ) : (
-          <ClientPacksTab
-            cancelingCutId={cancelingRecordId}
-            cancelingPack={cancelingPack}
-            detailError={packDetailError}
-            disabledActions={busyMutating}
-            error={packsError}
-            loading={packsLoading}
-            loadingDetail={loadingPackDetail}
-            onCancelConsumption={(consumptionId) =>
-              void handleCancelRecord(
-                consumptionId,
-                true,
-                "Corte Masculino",
-              )
-            }
-            onCancelPack={(pack) => void handleCancelPack(pack)}
-            onDismissDetailError={() => setPackDetailError(null)}
-            onDismissError={() => setPacksError(null)}
-            onRequestNewPack={
-              onRequestRenew
-                ? () => {
-                    onClose();
-                    onRequestRenew(currentClient);
-                  }
-                : undefined
-            }
-            onRetry={handleRetryPacks}
-            onSelectPack={(packId) => void handleSelectPack(packId)}
-            packs={packs}
-            selectedPackDetail={selectedPackDetail}
-            selectedPackId={selectedPackId}
-          />
-        )}
+        <div className="shrink-0 min-w-0">
+          {activeTab === "services" ? (
+            <ClientServiceHistoryTab
+              cancelingRecordId={cancelingRecordId}
+              disabledActions={busyMutating}
+              error={serviceError}
+              filterType={filterType}
+              includeCanceled={includeCanceled}
+              items={serviceItems}
+              loadMoreError={serviceLoadMoreError}
+              loading={serviceLoading}
+              loadingMore={serviceLoadingMore}
+              onCancelRecord={(item) =>
+                void handleCancelRecord(item.id, {
+                  isPackCut: item.isPackCut,
+                  isLoyaltyReward: item.isLoyaltyReward,
+                  countsForLoyalty: item.countsForLoyalty,
+                  serviceName: item.serviceName,
+                })
+              }
+              onDismissError={() => setServiceError(null)}
+              onDismissLoadMoreError={() => setServiceLoadMoreError(null)}
+              onFilterTypeChange={handleFilterTypeChange}
+              onLoadMore={() => void handleLoadMoreRecords()}
+              onRetry={handleRetryServiceRecords}
+              onToggleIncludeCanceled={handleToggleIncludeCanceled}
+              summary={summary}
+              total={serviceTotal}
+            />
+          ) : (
+            <ClientPacksTab
+              cancelingCutId={cancelingRecordId}
+              cancelingPack={cancelingPack}
+              detailError={packDetailError}
+              disabledActions={busyMutating}
+              error={packsError}
+              loading={packsLoading}
+              loadingDetail={loadingPackDetail}
+              onCancelConsumption={(consumptionId) =>
+                void handleCancelRecord(consumptionId, {
+                  isPackCut: true,
+                  serviceName: "Corte Masculino",
+                })
+              }
+              onCancelPack={(pack) => void handleCancelPack(pack)}
+              onDismissDetailError={() => setPackDetailError(null)}
+              onDismissError={() => setPacksError(null)}
+              onRequestNewPack={
+                onRequestRenew
+                  ? () => {
+                      onClose();
+                      onRequestRenew(currentClient);
+                    }
+                  : undefined
+              }
+              onRetry={handleRetryPacks}
+              onSelectPack={(packId) => void handleSelectPack(packId)}
+              packs={packs}
+              selectedPackDetail={selectedPackDetail}
+              selectedPackId={selectedPackId}
+            />
+          )}
+        </div>
       </div>
 
-      <div className="flex shrink-0 justify-end border-t border-[#e8eee9] bg-[#f5f7f4] px-5 py-3">
+      <div className="flex shrink-0 justify-end border-t border-[#e8eee9] bg-[#f5f7f4] px-4 py-3 sm:px-5">
         <Button
           className="!min-h-10 h-10 px-4 py-2 text-sm whitespace-nowrap"
           disabled={busyMutating}

@@ -21,10 +21,18 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { FeedbackMessage } from "../../components/ui/FeedbackMessage";
 import { Panel } from "../../components/ui/Panel";
 import { getApiErrorMessage } from "../../lib/errors";
-import { formatCurrency, paymentMethodLabel } from "../../lib/formatters";
+import {
+  formatCurrency,
+  getCurrentSaoPauloDateTime,
+  paymentMethodLabel,
+} from "../../lib/formatters";
 import { ClientDetailsModal } from "../clients/ClientDetailsModal";
 import { ClientRegistrationModal } from "../clients/ClientRegistrationModal";
 import { PackPurchaseModal } from "../clients/PackPurchaseModal";
+import {
+  getClientLoyalty,
+  isLoyaltyEligibleServiceName,
+} from "../clients/loyaltyUtils";
 import { ClientQuickPicker } from "./ClientQuickPicker";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ServiceBadge } from "./ServiceBadge";
@@ -32,6 +40,46 @@ import { ServiceSelector } from "./ServiceSelector";
 
 const MIN_TIP_CENTS = 1;
 const MAX_TIP_CENTS = 50_000;
+
+function LiveDateTimeBadge() {
+  const [clock, setClock] = useState(getCurrentSaoPauloDateTime);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const next = getCurrentSaoPauloDateTime();
+      setClock((current) =>
+        current.time === next.time && current.fullDate === next.fullDate
+          ? current
+          : next,
+      );
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div
+      aria-label={`Hoje, ${clock.fullDate} às ${clock.time}`}
+      className="flex shrink-0 items-center gap-2 rounded-xl border border-[#dce5dd] bg-white px-2.5 py-1.5 shadow-[0_0.2rem_0.6rem_rgb(23_33_27/4%)] sm:px-3 sm:py-2"
+    >
+      <CalendarDays
+        aria-hidden="true"
+        className="shrink-0 text-[#4a7957]"
+        size={18}
+      />
+      <div className="grid leading-tight">
+        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#4a7957]">
+          Hoje
+        </span>
+        <span className="whitespace-nowrap text-xs font-bold tabular-nums text-[#17211b]">
+          <span className="sm:hidden">{clock.shortDate}</span>
+          <span className="hidden sm:inline">{clock.fullDate}</span>
+          {" · "}
+          {clock.time}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function DailyOperation() {
   const { role } = useAuth();
@@ -52,6 +100,7 @@ export function DailyOperation() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittingPackCut, setSubmittingPackCut] = useState(false);
+  const [submittingLoyaltyCut, setSubmittingLoyaltyCut] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -170,18 +219,26 @@ export function DailyOperation() {
       const recordedTotalCents =
         createdRecord.totalCents ?? createdRecord.priceCents + recordedTipCents;
       const clientSuffix = selectedClient ? ` (${selectedClient.name})` : "";
+      const loyaltySummary = createdRecord.loyaltySummary;
+      const loyaltySuffix = loyaltySummary
+        ? loyaltySummary.freeCutAvailable
+          ? " · Fidelidade: 10/10 (Corte Grátis disponível!)"
+          : createdRecord.countsForLoyalty
+            ? ` · Fidelidade: ${loyaltySummary.currentCuts}/${loyaltySummary.targetCuts}`
+            : ""
+        : "";
 
       if (role === "daily_operator") {
         setSuccess(
           recordedTipCents > 0
-            ? `${serviceTitle}${clientSuffix} registrado com sucesso · Minha parte: ${formatCurrency(createdRecord.operatorShareCents)} (Serviço: ${formatCurrency(createdRecord.priceCents)} + Gorjeta: ${formatCurrency(recordedTipCents)}).`
-            : `${serviceTitle}${clientSuffix} registrado com sucesso · Minha parte (50%): ${formatCurrency(createdRecord.operatorShareCents)} (Bruto: ${formatCurrency(createdRecord.priceCents)}).`,
+            ? `${serviceTitle}${clientSuffix} registrado com sucesso · Minha parte: ${formatCurrency(createdRecord.operatorShareCents)} (Serviço: ${formatCurrency(createdRecord.priceCents)} + Gorjeta: ${formatCurrency(recordedTipCents)}).${loyaltySuffix}`
+            : `${serviceTitle}${clientSuffix} registrado com sucesso · Minha parte (50%): ${formatCurrency(createdRecord.operatorShareCents)} (Bruto: ${formatCurrency(createdRecord.priceCents)}).${loyaltySuffix}`,
         );
       } else {
         setSuccess(
           recordedTipCents > 0
-            ? `${serviceTitle}${clientSuffix} registrado com sucesso · Total: ${formatCurrency(recordedTotalCents)} (inclui ${formatCurrency(recordedTipCents)} de gorjeta).`
-            : `${serviceTitle}${clientSuffix} registrado com sucesso.`,
+            ? `${serviceTitle}${clientSuffix} registrado com sucesso · Total: ${formatCurrency(recordedTotalCents)} (inclui ${formatCurrency(recordedTipCents)} de gorjeta).${loyaltySuffix}`
+            : `${serviceTitle}${clientSuffix} registrado com sucesso.${loyaltySuffix}`,
         );
       }
 
@@ -202,7 +259,9 @@ export function DailyOperation() {
     tipPaymentMethod?: PaymentMethod;
     notes?: string;
   }) {
-    if (!selectedClient || submittingPackCut || submitting) return;
+    if (!selectedClient || submittingPackCut || submittingLoyaltyCut || submitting) {
+      return;
+    }
 
     setSubmittingPackCut(true);
     setSubmitError(null);
@@ -267,6 +326,76 @@ export function DailyOperation() {
     }
   }
 
+  async function handleRedeemLoyaltyCut(options: {
+    tipCents?: number;
+    tipPaymentMethod?: PaymentMethod;
+    notes?: string;
+  }) {
+    if (
+      !selectedClient ||
+      submittingLoyaltyCut ||
+      submittingPackCut ||
+      submitting
+    ) {
+      return;
+    }
+
+    setSubmittingLoyaltyCut(true);
+    setSubmitError(null);
+    setSuccess(null);
+    try {
+      const createdRecord = await createServiceRecord({
+        clientId: selectedClient.id,
+        useLoyaltyReward: true,
+        ...(options.tipCents && options.tipCents > 0
+          ? {
+              tipCents: options.tipCents,
+              tipPaymentMethod: options.tipPaymentMethod,
+            }
+          : {}),
+        ...(options.notes ? { notes: options.notes } : {}),
+      });
+
+      const tipValue = createdRecord.tipCents ?? 0;
+      const operatorSuffix =
+        role === "daily_operator"
+          ? ` · Minha parte: ${formatCurrency(createdRecord.operatorShareCents)}${
+              tipValue > 0
+                ? ` (inclui ${formatCurrency(tipValue)} de gorjeta)`
+                : ""
+            }`
+          : tipValue > 0
+            ? ` · Gorjeta: ${formatCurrency(tipValue)}`
+            : " · Cortesia (R$ 0,00)";
+
+      setSuccess(
+        `Corte gratuito de fidelidade resgatado para ${selectedClient.name}! Contador reiniciado para 0/10.${operatorSuffix}`,
+      );
+
+      try {
+        const refreshed = await getClient(selectedClient.id);
+        setSelectedClient(refreshed);
+      } catch {
+        if (createdRecord.loyaltySummary) {
+          setSelectedClient({
+            ...selectedClient,
+            loyalty: createdRecord.loyaltySummary,
+          });
+        }
+      }
+    } catch (cause: unknown) {
+      console.error("Não foi possível resgatar o corte de fidelidade:", cause);
+      setSubmitError(
+        getApiErrorMessage(
+          cause,
+          "Não foi possível resgatar o corte gratuito de fidelidade.",
+        ),
+      );
+    } finally {
+      setSubmittingLoyaltyCut(false);
+    }
+  }
+
   function handleClientCreated(client: Client) {
     setRegistrationModalOpen(false);
     setSelectedClient(client);
@@ -300,8 +429,8 @@ export function DailyOperation() {
 
   return (
     <section className="grid gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex min-w-0 items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[#4a7957]">
             DailyCheckout
           </p>
@@ -309,10 +438,7 @@ export function DailyOperation() {
             Operação diária
           </h1>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#dce5dd] bg-white px-2.5 py-2 text-xs font-bold text-[#4a7957]">
-          <CalendarDays size={18} />
-          <span>Hoje</span>
-        </div>
+        <LiveDateTimeBadge />
       </div>
 
       {loading && <EmptyState>Carregando serviços disponíveis...</EmptyState>}
@@ -358,12 +484,14 @@ export function DailyOperation() {
               setRegistrationModalOpen(true);
             }}
             onOpenPurchasePack={(client) => setPurchaseTargetClient(client)}
+            onRedeemLoyaltyCut={handleRedeemLoyaltyCut}
             onRedeemPackCut={handleRedeemPackCut}
             onSelectClient={(client) => {
               setSelectedClient(client);
               setSubmitError(null);
             }}
             selectedClient={selectedClient}
+            submittingLoyaltyCut={submittingLoyaltyCut}
             submittingPackCut={submittingPackCut}
           />
 
@@ -395,6 +523,15 @@ export function DailyOperation() {
                   </p>
                 </div>
                 <ServiceBadge service={selectedService} />
+                {selectedClient &&
+                  getClientLoyalty(selectedClient).freeCutAvailable &&
+                  isLoyaltyEligibleServiceName(selectedService.name) && (
+                    <p className="m-0 rounded-xl border border-[#ead9a6] bg-[#fff9e8] px-3.5 py-2.5 text-xs font-medium text-[#805d12]">
+                      Cliente já atingiu 10/10 — este corte avulso não acumula
+                      para o próximo prêmio. Para usar o prêmio, volte e clique
+                      em Resgatar Corte Grátis.
+                    </p>
+                  )}
               </div>
 
               <PaymentMethodSelector

@@ -125,14 +125,13 @@ export function ClientRegistrationModal({
       </div>
 
       <form
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
         onSubmit={(event) => void handleSubmit(event)}
       >
-        <div className="grid flex-1 content-start gap-3.5 overflow-y-auto px-5 py-4">
-          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          <label className="grid shrink-0 gap-1.5 text-sm font-bold text-[#34443a]">
             Nome do cliente *
             <input
-              autoFocus
               className={fieldClass}
               maxLength={120}
               onChange={(event) => {
@@ -146,7 +145,7 @@ export function ClientRegistrationModal({
             />
           </label>
 
-          <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
+          <label className="grid shrink-0 gap-1.5 text-sm font-bold text-[#34443a]">
             Telefone / WhatsApp *
             <input
               className={fieldClass}
@@ -166,7 +165,7 @@ export function ClientRegistrationModal({
           </label>
 
           <button
-            className="flex min-h-11 items-center justify-between rounded-[0.65rem] border border-[#dce5dd] bg-[#f5f7f4] px-3.5 py-2 text-left text-xs font-bold text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea]"
+            className="flex min-h-11 shrink-0 items-center justify-between gap-2 rounded-[0.65rem] border border-[#dce5dd] bg-[#f5f7f4] px-3.5 py-2 text-left text-xs font-bold text-[#2f6840] transition hover:border-[#4a7957] hover:bg-[#e8f2ea]"
             onClick={() => setShowExtraFields((prev) => !prev)}
             type="button"
           >
@@ -176,9 +175,9 @@ export function ClientRegistrationModal({
                 : "Adicionar CPF, E-mail ou Observações (opcional)"}
             </span>
             {showExtraFields ? (
-              <ChevronUp size={16} />
+              <ChevronUp className="shrink-0" size={16} />
             ) : (
-              <ChevronDown size={16} />
+              <ChevronDown className="shrink-0" size={16} />
             )}
           </button>
 
@@ -186,7 +185,7 @@ export function ClientRegistrationModal({
             {showExtraFields && (
               <m.div
                 animate={{ height: "auto", opacity: 1 }}
-                className="overflow-hidden"
+                className="shrink-0 overflow-hidden"
                 exit={{ height: 0, opacity: 0 }}
                 initial={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.18 }}
@@ -225,11 +224,11 @@ export function ClientRegistrationModal({
                   <label className="grid gap-1.5 text-sm font-bold text-[#34443a]">
                     Observações
                     <textarea
-                      className="w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3.5 py-2 text-sm font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
+                      className="min-h-[4.5rem] w-full rounded-[0.65rem] border border-[#c8d6ca] bg-white px-3.5 py-2 text-sm font-normal text-[#23372a] focus-visible:outline-2 focus-visible:outline-[#2f6840]"
                       maxLength={400}
                       onChange={(event) => setNotes(event.target.value)}
                       placeholder="Preferências de corte, observações..."
-                      rows={2}
+                      rows={3}
                       value={notes}
                     />
                   </label>
@@ -239,15 +238,17 @@ export function ClientRegistrationModal({
           </AnimatePresence>
 
           {error && (
-            <FeedbackMessage
-              message={error}
-              onClose={() => setError(null)}
-              variant="error"
-            />
+            <div className="shrink-0">
+              <FeedbackMessage
+                message={error}
+                onClose={() => setError(null)}
+                variant="error"
+              />
+            </div>
           )}
         </div>
 
-        <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-5 pt-3 pb-4">
+        <div className="grid shrink-0 grid-cols-[auto_1fr] gap-2.5 border-t border-[#e8eee9] bg-white px-4 pt-3 pb-4 sm:px-5">
           <Button
             className="!min-h-11 h-11 px-4 text-sm whitespace-nowrap"
             disabled={submitting}

@@ -1,5 +1,6 @@
 import {
   CalendarClock,
+  Gift,
   PackageCheck,
   RefreshCw,
   RotateCcw,
@@ -26,6 +27,9 @@ function getEmptyMessage(filterType: ClientServiceRecordsFilterType): string {
   }
   if (filterType === "pack") {
     return "Nenhum corte de pacote registrado para este cliente.";
+  }
+  if (filterType === "loyalty") {
+    return "Nenhum corte gratuito de fidelidade registrado para este cliente.";
   }
   return "Nenhum atendimento registrado para este cliente ainda.";
 }
@@ -89,14 +93,19 @@ export function ClientServiceHistoryTab({
       label: "Pacote",
       count: summary ? summary.packServicesCount : null,
     },
+    {
+      value: "loyalty",
+      label: "Fidelidade",
+      count: summary ? (summary.loyaltyServicesCount ?? 0) : null,
+    },
   ];
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="grid min-w-0 gap-3">
+      <div className="grid min-w-0 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <div
           aria-label="Filtrar atendimentos por tipo"
-          className="flex w-full min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 whitespace-nowrap sm:w-auto"
+          className="flex min-w-0 flex-wrap items-center gap-1.5"
           role="group"
         >
           {filterChips.map((chip) => {
@@ -104,7 +113,7 @@ export function ClientServiceHistoryTab({
             return (
               <button
                 aria-pressed={active}
-                className={`inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
+                className={`inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap transition ${
                   active
                     ? "border-[#2f6840] bg-[#2f6840] text-white"
                     : "border-[#dce5dd] bg-[#f5f7f4] text-[#34443a] hover:border-[#4a7957] hover:bg-[#e8f2ea]"
@@ -130,7 +139,7 @@ export function ClientServiceHistoryTab({
           })}
         </div>
 
-        <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#617067] select-none">
+        <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-xs font-medium text-[#617067] select-none">
           <input
             checked={includeCanceled}
             className="h-3.5 w-3.5 accent-[#2f6840]"
@@ -167,33 +176,35 @@ export function ClientServiceHistoryTab({
           </p>
         </div>
       ) : (
-        <div className="grid gap-2.5">
-          <ul className="m-0 grid list-none gap-2 p-0">
+        <div className="grid min-w-0 gap-2.5">
+          <ul className="m-0 grid min-w-0 list-none gap-2 p-0">
             {items.map((item) => {
               const isCanceled = Boolean(item.canceledAt);
               const isCanceling = cancelingRecordId === item.id;
+              const isLoyaltyReward = Boolean(item.isLoyaltyReward);
               const tipCents = item.tipCents ?? 0;
               const tipMethodSuffix =
                 tipCents > 0 &&
                 item.tipPaymentMethod &&
                 (item.isPackCut ||
+                  isLoyaltyReward ||
                   item.tipPaymentMethod !== item.paymentMethod)
                   ? ` (${paymentMethodLabel(item.tipPaymentMethod)})`
                   : "";
 
               return (
                 <li
-                  className={`grid gap-1.5 rounded-xl border p-3 transition ${
+                  className={`grid min-w-0 gap-1.5 rounded-xl border p-3 transition ${
                     isCanceled
                       ? "border-[#e7b0a7] bg-[#fff8f7] opacity-80"
                       : "border-[#dce5dd] bg-[#f5f7f4]"
                   }`}
                   key={item.id}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                       <strong
-                        className={`text-sm leading-snug text-[#17211b] ${
+                        className={`min-w-0 break-words text-sm leading-snug text-[#17211b] ${
                           isCanceled ? "line-through" : ""
                         }`}
                       >
@@ -210,9 +221,11 @@ export function ClientServiceHistoryTab({
                     {!isCanceled && (
                       <button
                         aria-label={
-                          item.isPackCut
-                            ? `Estornar corte ${item.serviceName}`
-                            : `Cancelar atendimento ${item.serviceName}`
+                          isLoyaltyReward
+                            ? `Estornar resgate ${item.serviceName}`
+                            : item.isPackCut
+                              ? `Estornar corte ${item.serviceName}`
+                              : `Cancelar atendimento ${item.serviceName}`
                         }
                         className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[#e7b0a7] bg-white px-2.5 text-[11px] font-bold whitespace-nowrap text-[#a83e3e] transition hover:bg-[#fbeaea] disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={
@@ -220,28 +233,42 @@ export function ClientServiceHistoryTab({
                         }
                         onClick={() => onCancelRecord(item)}
                         title={
-                          item.isPackCut
-                            ? "Estornar corte ao pacote"
-                            : "Cancelar atendimento"
+                          isLoyaltyReward
+                            ? "Estornar resgate gratuito de fidelidade"
+                            : item.isPackCut
+                              ? "Estornar corte ao pacote"
+                              : "Cancelar atendimento"
                         }
                         type="button"
                       >
                         <RotateCcw className="shrink-0" size={12} />
                         <span>
                           {isCanceling
-                            ? item.isPackCut
+                            ? item.isPackCut || isLoyaltyReward
                               ? "Estornando..."
                               : "Cancelando..."
-                            : item.isPackCut
-                              ? "Estornar"
-                              : "Cancelar"}
+                            : isLoyaltyReward
+                              ? "Estornar resgate"
+                              : item.isPackCut
+                                ? "Estornar"
+                                : "Cancelar"}
                         </span>
                       </button>
                     )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    {item.isPackCut ? (
+                    {isLoyaltyReward ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 rounded-md border border-[#ead9a6] bg-[#fff4d6] px-2 py-0.5 text-[11px] font-bold text-[#805d12]">
+                          <Gift className="shrink-0" size={11} />
+                          <span>Fidelidade · Grátis</span>
+                        </span>
+                        <span className="font-bold text-[#6e4f0e]">
+                          R$ 0,00 (Cortesia Fidelidade)
+                        </span>
+                      </>
+                    ) : item.isPackCut ? (
                       <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#9fc2a7] bg-[#e8f2ea] px-2 py-0.5 text-[11px] font-bold text-[#2f6840]">
                         <PackageCheck className="shrink-0" size={12} />
                         <span className="truncate">
@@ -251,19 +278,23 @@ export function ClientServiceHistoryTab({
                         </span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-[#dce5dd] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#617067]">
-                        <Scissors className="shrink-0" size={11} />
-                        <span>Avulso</span>
-                      </span>
-                    )}
-
-                    {!item.isPackCut && (
-                      <span className="font-bold text-[#23372a]">
-                        {formatCurrency(item.priceCents)}
-                        {item.paymentMethod
-                          ? ` · ${paymentMethodLabel(item.paymentMethod)}`
-                          : ""}
-                      </span>
+                      <>
+                        <span className="inline-flex items-center gap-1 rounded-md border border-[#dce5dd] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#617067]">
+                          <Scissors className="shrink-0" size={11} />
+                          <span>Avulso</span>
+                        </span>
+                        {item.countsForLoyalty && (
+                          <span className="rounded-md border border-[#c8d6ca] bg-[#e8f2ea] px-1.5 py-0.5 text-[10px] font-bold text-[#2f6840]">
+                            +1 fidelidade
+                          </span>
+                        )}
+                        <span className="font-bold text-[#23372a]">
+                          {formatCurrency(item.priceCents)}
+                          {item.paymentMethod
+                            ? ` · ${paymentMethodLabel(item.paymentMethod)}`
+                            : ""}
+                        </span>
+                      </>
                     )}
 
                     {tipCents > 0 && (

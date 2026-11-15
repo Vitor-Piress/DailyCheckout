@@ -45,6 +45,14 @@ export type ClientActivePackSummary = {
   purchasedAt?: string;
 };
 
+export type ClientLoyaltySummary = {
+  currentCuts: number;
+  targetCuts: number;
+  remainingCuts: number;
+  freeCutAvailable: boolean;
+  totalRewardsRedeemed: number;
+};
+
 export type Client = {
   id: string;
   name: string;
@@ -58,6 +66,7 @@ export type Client = {
   updatedAt: string;
   hasPackProfile: boolean;
   activePack: ClientActivePackSummary | null;
+  loyalty: ClientLoyaltySummary;
 };
 
 export type ClientsListResponse = {
@@ -139,6 +148,7 @@ export type CreateServiceRecordInput =
       paymentMethod: PaymentMethod;
       clientId?: string;
       useActivePack?: false;
+      useLoyaltyReward?: false;
       tipCents?: number;
       tipPaymentMethod?: PaymentMethod;
       occurredAt?: string;
@@ -148,6 +158,17 @@ export type CreateServiceRecordInput =
       clientId: string;
       useActivePack: true;
       clientPackId?: string;
+      useLoyaltyReward?: false;
+      tipCents?: number;
+      tipPaymentMethod?: PaymentMethod;
+      occurredAt?: string;
+      notes?: string;
+    }
+  | {
+      clientId: string;
+      useLoyaltyReward: true;
+      serviceTypeId?: string;
+      paymentMethod?: PaymentMethod;
       tipCents?: number;
       tipPaymentMethod?: PaymentMethod;
       occurredAt?: string;
@@ -172,18 +193,35 @@ export type ServiceRecord = {
   clientId?: string | null;
   clientName?: string | null;
   clientPackId?: string | null;
+  isLoyaltyReward?: boolean;
+  countsForLoyalty?: boolean;
   packSummary?: ClientActivePackSummary | null;
+  loyaltySummary?: ClientLoyaltySummary | null;
   status?: string;
   canceledAt?: string | null;
   cancelledAt?: string | null;
 };
 
-export type ClientServiceRecordsFilterType = "all" | "standalone" | "pack";
+export type CancelServiceRecordResponse = {
+  id: string;
+  clientId?: string | null;
+  canceledAt: string;
+  cancellationReason?: string | null;
+  packSummary?: ClientActivePackSummary | null;
+  loyaltySummary?: ClientLoyaltySummary | null;
+};
+
+export type ClientServiceRecordsFilterType =
+  | "all"
+  | "standalone"
+  | "pack"
+  | "loyalty";
 
 export type ClientServiceRecordsSummary = {
   totalServicesCount: number;
   standaloneServicesCount: number;
   packServicesCount: number;
+  loyaltyServicesCount: number;
   lastServiceAt: string | null;
 };
 
@@ -196,6 +234,8 @@ export type ClientServiceRecordItem = {
   clientPackId: string | null;
   packPlanName: string | null;
   isPackCut: boolean;
+  isLoyaltyReward: boolean;
+  countsForLoyalty: boolean;
   priceCents: number;
   tipCents: number;
   totalCents: number;
@@ -274,6 +314,8 @@ export type SettlementOperator = {
   serviceCount: number;
   packCutsCount?: number;
   packCommissionCents?: number;
+  loyaltyCutsCount?: number;
+  loyaltyCommissionCents?: number;
 };
 
 export type SettlementAdminSummary = {
@@ -303,6 +345,7 @@ export type ClosedSettlement = {
   unidentifiedServiceCount: number;
   packSalesCents?: number;
   packCommissionDeductionCents?: number;
+  loyaltyCommissionDeductionCents?: number;
 };
 
 export type DailyReportSettlement = {
@@ -319,6 +362,7 @@ export type DailyReportSettlement = {
   unidentifiedServiceCount: number;
   packSalesCents?: number;
   packCommissionDeductionCents?: number;
+  loyaltyCommissionDeductionCents?: number;
   closedSettlement: ClosedSettlement | null;
   hasDifferenceFromCurrentCalculation: boolean;
   differences: SettlementDifferences | null;
@@ -347,6 +391,7 @@ export type PeriodicSettlement = {
   unidentifiedServiceCount: number;
   packSalesCents?: number;
   packCommissionDeductionCents?: number;
+  loyaltyCommissionDeductionCents?: number;
   dailyOperators: SettlementOperator[];
   days: SettlementDaySummary[];
   closedDaysCount: number;
@@ -366,6 +411,9 @@ export type OperatorDailyShare = {
   packCutsCount?: number;
   packCutsReferenceCents?: number;
   packCommissionCents?: number;
+  loyaltyCutsCount?: number;
+  loyaltyCutsReferenceCents?: number;
+  loyaltyCommissionCents?: number;
 };
 
 export type UserServiceSummary = {
@@ -395,6 +443,9 @@ export type UserReportSummary = {
   packCutsCount?: number;
   packCutsReferenceCents?: number;
   packCommissionCents?: number;
+  loyaltyCutsCount?: number;
+  loyaltyCutsReferenceCents?: number;
+  loyaltyCommissionCents?: number;
   services: UserServiceSummary[];
 };
 
@@ -420,6 +471,7 @@ export type DailyReport = {
   packSalesCents?: number;
   packSalesCount?: number;
   packCutsCount?: number;
+  loyaltyCutsCount?: number;
   operatorShare: OperatorDailyShare | null;
   users: DailyUserReportSummary[];
   settlement: DailyReportSettlement | null;
@@ -435,6 +487,8 @@ export type FlexibleOperatorSummary = {
   adminShareCents: number;
   packCutsCount?: number;
   packCommissionCents?: number;
+  loyaltyCutsCount?: number;
+  loyaltyCommissionCents?: number;
 };
 
 export type FlexibleOperatorsExpense = {
@@ -446,6 +500,8 @@ export type FlexibleOperatorsExpense = {
   isFlexible: boolean;
   packCutsCount?: number;
   packCommissionCents?: number;
+  loyaltyCutsCount?: number;
+  loyaltyCommissionCents?: number;
   operators: FlexibleOperatorSummary[];
 };
 

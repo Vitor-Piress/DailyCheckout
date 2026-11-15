@@ -129,12 +129,12 @@ export function ClientPacksTab({
     activePack?.status === "cancelled" || activePack?.status === "canceled";
 
   return (
-    <div className="grid gap-3.5">
+    <div className="grid min-w-0 gap-3.5">
       {packs.length > 1 && (
-        <label className="grid gap-1 text-xs font-bold text-[#34443a]">
+        <label className="grid min-w-0 gap-1 text-xs font-bold text-[#34443a]">
           Selecionar pacote contratado ({packs.length})
           <select
-            className="min-h-11 w-full truncate rounded-[0.6rem] border border-[#c8d6ca] bg-[#f5f7f4] py-2 pr-8 pl-3 text-xs font-bold text-[#23372a] sm:text-sm"
+            className="min-h-11 w-full min-w-0 max-w-full truncate rounded-[0.6rem] border border-[#c8d6ca] bg-[#f5f7f4] py-2 pr-8 pl-3 text-xs font-bold text-[#23372a] sm:text-sm"
             onChange={(event) => onSelectPack(event.target.value)}
             value={selectedPackId}
           >
@@ -163,10 +163,10 @@ export function ClientPacksTab({
 
       {!loadingDetail && activePack && (
         <>
-          <div className="grid gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <strong className="text-base text-[#17211b]">
+          <div className="grid min-w-0 gap-3 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3.5 sm:p-4">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <strong className="block truncate text-base text-[#17211b]">
                   {activePack.planName}
                 </strong>
                 <p className="m-0 text-xs text-[#617067]">
@@ -178,7 +178,7 @@ export function ClientPacksTab({
                 </p>
               </div>
               <span
-                className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold whitespace-nowrap ${
                   packStatusMeta(activePack.status).className
                 }`}
               >
@@ -186,8 +186,8 @@ export function ClientPacksTab({
               </span>
             </div>
 
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between text-xs font-bold">
+            <div className="grid min-w-0 gap-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
                 <span className="text-[#34443a]">
                   Utilizados: {activePack.usedCuts} de {activePack.totalCuts}{" "}
                   cortes
@@ -211,7 +211,7 @@ export function ClientPacksTab({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#dce5dd] pt-2.5 text-xs text-[#617067]">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[#dce5dd] pt-2.5 text-xs text-[#617067]">
               <span>
                 Valor do pacote:{" "}
                 <strong className="text-[#23372a]">
@@ -227,13 +227,13 @@ export function ClientPacksTab({
             </div>
 
             {activePack.notes && (
-              <p className="m-0 border-t border-[#dce5dd] pt-2 text-xs text-[#617067]">
+              <p className="m-0 break-words border-t border-[#dce5dd] pt-2 text-xs text-[#617067]">
                 Obs.: {activePack.notes}
               </p>
             )}
           </div>
 
-          <div className="grid gap-2.5">
+          <div className="grid min-w-0 gap-2.5">
             <h3 className="m-0 text-sm font-bold text-[#34443a]">
               Carimbos / Cortes do pacote ({consumptions.length})
             </h3>
@@ -243,16 +243,16 @@ export function ClientPacksTab({
                 Nenhum corte foi descontado deste pacote até o momento.
               </p>
             ) : (
-              <ul className="m-0 grid list-none gap-2 p-0">
+              <ul className="m-0 grid min-w-0 list-none gap-2 p-0">
                 {consumptions.map((cut, index) => {
                   const isCanceling = cancelingCutId === cut.id;
                   return (
                     <li
-                      className="grid gap-1.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3"
+                      className="grid min-w-0 gap-1.5 rounded-xl border border-[#dce5dd] bg-[#f5f7f4] p-3"
                       key={cut.id}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <div className="flex min-w-0 items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                           <span className="inline-flex items-center gap-1 rounded-md bg-[#2f6840] px-2 py-0.5 text-xs font-bold whitespace-nowrap text-white">
                             <Scissors className="shrink-0" size={12} />
                             Corte #{index + 1}
